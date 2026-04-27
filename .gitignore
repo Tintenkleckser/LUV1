@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+.yarn/
+
+# Next.js
+.next/
+.build/
+out/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Logs
+*.log
+
+# Prisma
+# node_modules/.prisma/
