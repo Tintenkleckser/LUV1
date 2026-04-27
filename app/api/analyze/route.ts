@@ -258,19 +258,8 @@ ${systemContext}`;
       { role: 'user', content: userPrompt },
     ];
 
-    const llmResponse = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-mini',
-        messages,
-        stream: true,
-        max_tokens: 4000,
-      }),
-    });
+    const { callLlm } = await import('@/lib/llm');
+    const llmResponse = await callLlm({ messages, stream: true, max_tokens: 4000 });
 
     if (!llmResponse.ok) {
       const errText = await llmResponse.text();

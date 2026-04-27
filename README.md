@@ -21,9 +21,10 @@ KI-gestützte Kompetenzeinschätzung für Berater:innen in der beruflichen Rehab
 - **Datenbank:** PostgreSQL mit Prisma ORM
 - **Wissensbasis:** Supabase (Read-Only für Fachinhalte)
 - **Authentifizierung:** NextAuth.js
-- **KI:** Abacus.AI LLM API
+- **KI:** Provider-agnostisch – Mistral, OpenAI oder Abacus.AI (OpenAI-kompatible API)
 - **UI:** Tailwind CSS, shadcn/ui, Framer Motion
-- **E-Mail:** Abacus.AI Notification API
+- **E-Mail:** Resend (Vercel) oder Abacus.AI Notification API
+- **Deployment:** Vercel oder Abacus.AI
 
 ## Voraussetzungen
 
@@ -57,17 +58,33 @@ yarn dev
 
 ## Umgebungsvariablen
 
-Siehe `.env.example` für alle benötigten Variablen.
+Siehe `.env.example` für alle benötigten Variablen und Beispiele.
 
-| Variable | Beschreibung |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL Connection String |
-| `NEXTAUTH_SECRET` | Zufälliger Secret Key für NextAuth |
-| `NEXTAUTH_URL` | URL der Anwendung |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Projekt-URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon Key |
-| `ABACUSAI_API_KEY` | API Key für KI-Analyse |
-| `WEB_APP_ID` | App-ID für E-Mail-Benachrichtigungen |
+| Variable | Beschreibung | Erforderlich |
+|----------|-------------|:---:|
+| `DATABASE_URL` | PostgreSQL Connection String | ✅ |
+| `NEXTAUTH_SECRET` | Zufälliger Secret Key für NextAuth | ✅ |
+| `NEXTAUTH_URL` | URL der Anwendung | ✅ |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Projekt-URL | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon Key | ✅ |
+| **LLM API** | | |
+| `LLM_API_URL` | API-Endpunkt (z.B. Mistral, OpenAI) | ✅¹ |
+| `LLM_API_KEY` | API Key für den LLM-Provider | ✅¹ |
+| `LLM_MODEL` | Modellname (z.B. `mistral-large-latest`) | Optional |
+| **E-Mail** | | |
+| `RESEND_API_KEY` | Resend API Key (für Vercel) | ✅² |
+| `RESEND_FROM_EMAIL` | Absender-Adresse | Optional |
+
+¹ Falls nicht gesetzt, wird `ABACUSAI_API_KEY` als Fallback verwendet.
+² Falls nicht gesetzt, wird die Abacus.AI Notification API verwendet.
+
+### Deployment auf Vercel
+
+1. Repository auf GitHub pushen
+2. In Vercel importieren
+3. Umgebungsvariablen setzen (siehe oben)
+4. `prisma generate` wird automatisch beim Build ausgeführt (siehe `postinstall` Script oder füge `"postinstall": "prisma generate"` in `package.json` hinzu)
+5. Deployen
 
 ## Projektstruktur
 
