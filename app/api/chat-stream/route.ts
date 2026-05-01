@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
     let handbuchContext = '';
     try {
       const [luvResult, handbuchResult] = await Promise.all([
-        supabase.from('wissen_luv').select('*'),
-        supabase.from('wissen_handbuch').select('*').order('category', { ascending: true }),
+        supabase.from('wissen_luv').select('*').limit(80),
+        supabase.from('wissen_handbuch').select('*').order('category', { ascending: true }).limit(80),
       ]);
 
       // Structure LUV by category/type
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           if (entry?.content) luvByCategory[cat].push(entry.content);
         }
         luvContext = Object.entries(luvByCategory)
-          .map(([cat, items]) => `### ${cat}\n${items.join('\n')}`)
+          .map(([cat, items]) => `### ${cat}\n${items.join('\n').slice(0, 12000)}`)
           .join('\n\n');
       }
 
@@ -109,7 +109,8 @@ export async function POST(request: NextRequest) {
             const itemTexts = items
               .map((it) => it.topic ? `**${it.topic}:** ${it.content}` : it.content)
               .filter(Boolean)
-              .join('\n');
+              .join('\n')
+              .slice(0, 12000);
             return `### ${cat}\n${itemTexts}`;
           })
           .join('\n\n');
@@ -148,7 +149,7 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
     if (!llmResponse.ok) {
       const errText = await llmResponse.text();
       console.error('Chat LLM error:', errText);
-      return new Response(JSON.stringify({ error: 'KI-Antwort fehlgeschlagen' }), { status: 500 });
+      return new Response(JSON.stringify({ error: errText || 'KI-Antwort fehlgeschlagen' }), { status: 500 });
     }
 
     const stream = new ReadableStream({
@@ -216,6 +217,6 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
     });
   } catch (err: any) {
     console.error('Chat stream error:', err);
-    return new Response(JSON.stringify({ error: 'Chat-Fehler' }), { status: 500 });
+    return new Response(JSON.stringify({ error: err?.message ?? 'Chat-Fehler' }), { status: 500 });
   }
 }

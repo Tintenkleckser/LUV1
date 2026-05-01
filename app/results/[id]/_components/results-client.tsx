@@ -79,7 +79,8 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
       });
 
       if (!res.ok) {
-        toast.error('KI-Analyse fehlgeschlagen');
+        const errData = await res.json().catch(() => null);
+        toast.error(errData?.error ?? 'KI-Analyse fehlgeschlagen');
         setAnalyzing(false);
         return;
       }
