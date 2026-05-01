@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(assessments ?? []);
   } catch (err: any) {
     console.error('Assessments error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }
 
@@ -61,6 +61,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(assessment, { status: 201 });
   } catch (err: any) {
     console.error('Assessment POST error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }

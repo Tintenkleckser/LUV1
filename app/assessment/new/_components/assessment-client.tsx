@@ -278,7 +278,8 @@ export function AssessmentClient() {
         }
         toast.success('Zwischenstand gespeichert! Sie können jederzeit fortfahren.');
       } else {
-        toast.error('Fehler beim Zwischenspeichern');
+        const errData = await res.json().catch(() => null);
+        toast.error(errData?.error ?? 'Fehler beim Zwischenspeichern');
       }
     } catch (err: any) {
       console.error('Save draft error:', err);
@@ -316,7 +317,7 @@ export function AssessmentClient() {
         toast.success('Einschätzung gespeichert!');
         router.push(`/results/${data?.id ?? existingAssessmentId}`);
       } else {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => null);
         toast.error(errData?.error ?? 'Fehler beim Speichern');
       }
     } catch (err: any) {

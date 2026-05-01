@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json(assessment);
   } catch (err: any) {
     console.error('Assessment GET by id error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }
 
@@ -51,6 +51,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json(assessment);
   } catch (err: any) {
     console.error('Assessment PATCH error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }

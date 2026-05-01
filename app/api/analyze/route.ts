@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       if (luvEntries.length > 0) {
         const luvByCategory: Record<string, string[]> = {};
         for (const entry of luvEntries) {
-          const cat = entry?.category ?? entry?.type ?? 'Allgemein';
+          const cat = entry?.category ?? entry?.kategorie ?? entry?.type ?? 'Allgemein';
           if (!luvByCategory[cat]) luvByCategory[cat] = [];
           if (entry?.content) luvByCategory[cat].push(entry.content);
         }
@@ -76,10 +76,10 @@ export async function POST(request: NextRequest) {
       if (handbuchEntries.length > 0) {
         const handbuchByCategory: Record<string, { topic: string; content: string }[]> = {};
         for (const entry of handbuchEntries) {
-          const cat = entry?.category ?? 'Allgemein';
+          const cat = entry?.category ?? entry?.kategorie ?? entry?.source_file ?? 'Allgemein';
           if (!handbuchByCategory[cat]) handbuchByCategory[cat] = [];
           handbuchByCategory[cat].push({
-            topic: entry?.topic ?? '',
+            topic: entry?.topic ?? entry?.source_file ?? '',
             content: entry?.content ?? '',
           });
         }
