@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, Sparkles, MessageSquare, Table2, Target,
@@ -35,18 +34,13 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
   const { data: session, status } = useSession() || {};
   const router = useRouter();
   const [assessment, setAssessment] = useState<any>(null);
-  const [competencies, setCompetencies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [analysisText, setAnalysisText] = useState('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysisType, setAnalysisType] = useState('');
   const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const analysisRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollChatToBottom = () => {
@@ -59,18 +53,10 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
 
   const fetchData = useCallback(async () => {
     try {
-      const [assessRes, compRes] = await Promise.all([
-        fetch(`/api/assessments/${assessmentId}`),
-        fetch('/api/competencies'),
-      ]);
+      const assessRes = await fetch(`/api/assessments/${assessmentId}`);
       if (assessRes.ok) {
         const aData = await assessRes.json();
         setAssessment(aData);
-        if (aData?.aiAnalysis) setAnalysisText(aData.aiAnalysis);
-      }
-      if (compRes.ok) {
-        const cData = await compRes.json();
-        setCompetencies(cData ?? []);
       }
     } catch (err: any) {
       console.error('Fetch results error:', err);
@@ -133,69 +119,6 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
   useEffect(() => {
     if (status === 'authenticated') initChat();
   }, [status, initChat]);
-
-  const startAnalysis = async (type: string) => {
-    setAnalyzing(true);
-    setAnalysisType(type);
-    setAnalysisText('');
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assessment_id: assessmentId,
-          ratings: assessment?.ratings ?? {},
-          competencies,
-          analysis_type: type,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        toast.error(errData?.error ?? 'KI-Analyse fehlgeschlagen');
-        setAnalyzing(false);
-        return;
-      }
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let partialRead = '';
-
-      while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
-        partialRead += decoder.decode(value, { stream: true });
-        let lines = partialRead.split('\n');
-        partialRead = lines.pop() ?? '';
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed?.status === 'streaming') {
-                setAnalysisText((prev) => (prev ?? '') + (parsed?.content ?? ''));
-              } else if (parsed?.status === 'completed') {
-                setAnalysisText(parsed?.content ?? '');
-                setAnalyzing(false);
-                return;
-              } else if (parsed?.status === 'error') {
-                toast.error(parsed?.message ?? 'Fehler');
-                setAnalyzing(false);
-                return;
-              }
-            } catch (e) {
-              // skip
-            }
-          }
-        }
-      }
-      setAnalyzing(false);
-    } catch (err: any) {
-      console.error('Analysis error:', err);
-      toast.error('KI-Analyse fehlgeschlagen');
-      setAnalyzing(false);
-    }
-  };
 
   const sendMessage = async (preset?: string) => {
     const userMsg = (preset ?? input).trim();
@@ -291,9 +214,33 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     );
   }
 
+  const preparedPrompts = [
+    {
+      label: 'Stärken-Schwächen',
+      icon: Target,
+      prompt: 'Bitte erstelle eine strukturierte Stärken-Schwächen-Auswertung auf Basis der vorliegenden Kompetenzeinschätzung. Berücksichtige die fachlichen Antworten und leite daraus die wichtigsten Entwicklungsbereiche ab.',
+    },
+    {
+      label: 'Verbalisierung',
+      icon: Table2,
+      prompt: 'Bitte formuliere die Ergebnisse der Kompetenzeinschätzung als gut lesbaren Fließtext für eine pädagogische oder rehabilitationspädagogische Dokumentation.',
+    },
+    {
+      label: 'Förderansätze',
+      icon: Lightbulb,
+      prompt: 'Bitte entwickle konkrete Förderansätze und nächste Schritte auf Basis der vorliegenden Kompetenzeinschätzung. Priorisiere die wichtigsten Maßnahmen.',
+    },
+  ];
+
+  const followUpPrompts = [
+    'Welche Kompetenzbereiche sollten zuerst bearbeitet werden?',
+    'Welche Beobachtungen wären für die nächste Einschätzung besonders wichtig?',
+    'Wie lässt sich die Einschätzung wertschätzend zusammenfassen?',
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+    <div className="h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex flex-col overflow-hidden">
+      <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-[1200px] mx-auto px-4 h-14 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Dashboard
@@ -314,237 +261,181 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
         </div>
       </header>
 
-      <main className="max-w-[1200px] mx-auto px-4 py-6">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 className="text-2xl font-display font-bold tracking-tight mb-1">
-            KI-Auswertung
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Einschätzung vom {assessment?.createdAt ? new Date(assessment.createdAt).toLocaleDateString('de-DE') : ''}
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
-          <Card className="min-w-0">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                KI-Auswertung
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button
-                  variant={analysisType === 'strengths_weaknesses' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => startAnalysis('strengths_weaknesses')}
-                  disabled={analyzing}
-                >
-                  <Target className="w-4 h-4 mr-1" /> Stärken-Schwächen
-                </Button>
-                <Button
-                  variant={analysisType === 'results_table' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => startAnalysis('results_table')}
-                  disabled={analyzing}
-                >
-                  <Table2 className="w-4 h-4 mr-1" /> Verbalisierung
-                </Button>
-                <Button
-                  variant={analysisType === 'recommendations' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => startAnalysis('recommendations')}
-                  disabled={analyzing}
-                >
-                  <Lightbulb className="w-4 h-4 mr-1" /> Förderansätze
-                </Button>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={() => startAnalysis('full')}
-                disabled={analyzing}
+      <main className="min-h-0 flex-1 max-w-[1200px] w-full mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
+        <aside className="hidden lg:flex min-h-0 flex-col rounded-lg border bg-card/90 p-3">
+          <div className="px-1 pb-3">
+            <div className="text-xs font-semibold text-muted-foreground">Vergangene Chats</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {assessment?.createdAt ? new Date(assessment.createdAt).toLocaleDateString('de-DE') : ''}
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
+            {(chats ?? []).map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => loadChat(chat.id)}
+                className={`w-full rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/60 ${
+                  chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background/70'
+                }`}
               >
-                <Sparkles className="w-4 h-4 mr-1" />
-                {analyzing ? 'Analysiere...' : 'Vollständige Analyse'}
-              </Button>
+                <div className="text-xs font-medium truncate">{chat.title || 'Chatverlauf'}</div>
+                <div className="text-xs text-muted-foreground line-clamp-3 mt-1">
+                  {chat.lastMessage || 'Noch keine gespeicherte Antwort'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </aside>
 
-              {/* Analysis Output */}
-              <div ref={analysisRef} className="relative">
-                {analyzing && (
-                  <div className="flex items-center gap-2 text-sm text-primary mb-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>KI analysiert...</span>
+        <section className="min-h-0 flex flex-col rounded-lg border bg-card/90 overflow-hidden">
+          <div className="shrink-0 border-b px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                KI-Chat zur Auswertung
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                Teilnehmende/r: {assessment?.client?.clientCode ?? assessment?.clientId ?? ''}
+              </div>
+            </div>
+            <Sparkles className="w-5 h-5 text-primary/60 shrink-0" />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
+            {(messages?.length ?? 0) === 0 && !streamingContent && (
+              <div className="text-center py-16">
+                <Sparkles className="w-12 h-12 text-primary/20 mx-auto mb-4" />
+                <h3 className="text-lg font-display font-semibold mb-1">KI-Auswertung starten</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Wählen Sie unten einen vorbereiteten Prompt oder stellen Sie eine eigene Frage.
+                </p>
+              </div>
+            )}
+
+            {(messages ?? []).map((msg: Message, idx: number) => (
+              <motion.div
+                key={msg?.id ?? idx}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex gap-3 ${msg?.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {msg?.role !== 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-4 h-4 text-primary" />
                   </div>
                 )}
-                {analysisText ? (
-                  <div>
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <MarkdownRenderer content={analysisText} />
-                    </div>
-                    {!analyzing && (
+                <div
+                  className={`max-w-[82%] rounded-xl px-4 py-3 text-sm ${
+                    msg?.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background border shadow-sm'
+                  }`}
+                >
+                  {msg?.role === 'user' ? (
+                    <div className="whitespace-pre-wrap">{msg?.content ?? ''}</div>
+                  ) : (
+                    <div>
+                      <MarkdownRenderer content={msg?.content ?? ''} />
                       <ExportButtons
-                        content={analysisText}
-                        filenameBase={`Kompetenzanalyse_${assessment?.client?.clientCode ?? assessmentId}`}
+                        content={msg?.content ?? ''}
+                        filenameBase={`Chat-Antwort_${idx + 1}`}
                       />
-                    )}
-                  </div>
-                ) : !analyzing ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Wählen Sie eine Analyse-Art, um die KI-Auswertung zu starten</p>
-                  </div>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="min-w-0 xl:sticky xl:top-20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-primary" />
-                Nachfragen
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-left h-auto whitespace-normal"
-                  disabled={sending}
-                  onClick={() => sendMessage('Bitte erläutere die wichtigsten Befunde dieser Auswertung noch einmal in einfacher, praxisnaher Sprache.')}
-                >
-                  Befunde erläutern
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-left h-auto whitespace-normal"
-                  disabled={sending}
-                  onClick={() => sendMessage('Welche nächsten Schritte und Fördermaßnahmen sind auf Basis dieser Einschätzung besonders sinnvoll?')}
-                >
-                  Nächste Schritte
-                </Button>
-              </div>
-
-              <div className="rounded-lg border bg-background/70">
-                <div className="border-b px-3 py-2">
-                  <div className="text-xs font-semibold text-muted-foreground">Bisherige Chatverläufe</div>
-                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                    {(chats ?? []).map((chat) => (
-                      <button
-                        key={chat.id}
-                        onClick={() => loadChat(chat.id)}
-                        className={`min-w-[180px] max-w-[220px] rounded-md border px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60 ${
-                          chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background'
-                        }`}
-                      >
-                        <div className="font-medium truncate">{chat.title || 'Chatverlauf'}</div>
-                        <div className="text-muted-foreground truncate">
-                          {chat.lastMessage || 'Noch keine gespeicherte Antwort'}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="h-[52vh] min-h-[360px] overflow-y-auto overscroll-contain px-3 py-3 space-y-3">
-                  {(messages?.length ?? 0) === 0 && !streamingContent && (
-                    <div className="text-center py-10">
-                      <Sparkles className="w-10 h-10 text-primary/20 mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground">
-                        Stellen Sie Rückfragen zur Auswertung, ohne den Text zu verlassen.
-                      </p>
                     </div>
                   )}
-
-                  {(messages ?? []).map((msg: Message, idx: number) => (
-                    <motion.div
-                      key={msg?.id ?? idx}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex gap-2 ${msg?.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {msg?.role !== 'user' && (
-                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Bot className="w-3.5 h-3.5 text-primary" />
-                        </div>
-                      )}
-                      <div
-                        className={`max-w-[86%] rounded-xl px-3 py-2 text-sm ${
-                          msg?.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-card border shadow-sm'
-                        }`}
-                      >
-                        {msg?.role === 'user' ? (
-                          <div className="whitespace-pre-wrap">{msg?.content ?? ''}</div>
-                        ) : (
-                          <MarkdownRenderer content={msg?.content ?? ''} />
-                        )}
-                      </div>
-                      {msg?.role === 'user' && (
-                        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                          <User className="w-3.5 h-3.5 text-primary-foreground" />
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-
-                  {streamingContent && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-2 justify-start"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="max-w-[86%] rounded-xl px-3 py-2 text-sm bg-card border shadow-sm">
-                        <MarkdownRenderer content={streamingContent} />
-                        <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1" />
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {sending && !streamingContent && (
-                    <div className="flex gap-2 justify-start">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Bot className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="bg-card border rounded-xl px-3 py-2 shadow-sm">
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
-                    </div>
-                  )}
-
-                  <div ref={messagesEndRef} />
                 </div>
-              </div>
+                {msg?.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                )}
+              </motion.div>
+            ))}
 
-              <form
-                onSubmit={(e: React.FormEvent) => {
-                  e.preventDefault();
-                  sendMessage();
-                }}
-                className="flex gap-2"
+            {streamingContent && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-3 justify-start"
               >
-                <Input
-                  placeholder="Rückfrage stellen..."
-                  value={input}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+                <div className="max-w-[82%] rounded-xl px-4 py-3 text-sm bg-background border shadow-sm">
+                  <MarkdownRenderer content={streamingContent} />
+                  <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1" />
+                </div>
+              </motion.div>
+            )}
+
+            {sending && !streamingContent && (
+              <div className="flex gap-3 justify-start">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+                <div className="bg-background border rounded-xl px-4 py-3 shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="shrink-0 border-t bg-background/85 backdrop-blur px-4 py-3 space-y-3">
+            <form
+              onSubmit={(e: React.FormEvent) => {
+                e.preventDefault();
+                sendMessage();
+              }}
+              className="flex gap-2"
+            >
+              <Input
+                placeholder="Rückfrage stellen..."
+                value={input}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+                disabled={sending}
+                className="flex-1"
+              />
+              <Button type="submit" disabled={sending || !input?.trim()}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {preparedPrompts.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Button
+                    key={item.label}
+                    variant="outline"
+                    size="sm"
+                    className="justify-start h-auto whitespace-normal text-left"
+                    disabled={sending}
+                    onClick={() => sendMessage(item.prompt)}
+                  >
+                    <Icon className="w-4 h-4 mr-2 shrink-0" />
+                    {item.label}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {followUpPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto rounded-full border bg-card px-3 py-1.5 text-xs font-normal"
                   disabled={sending}
-                  className="flex-1"
-                />
-                <Button type="submit" disabled={sending || !input?.trim()}>
-                  <Send className="w-4 h-4" />
+                  onClick={() => sendMessage(prompt)}
+                >
+                  {prompt}
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );
