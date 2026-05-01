@@ -11,25 +11,77 @@ const fallbackSuggestions = [
   'Wie lässt sich die Einschätzung wertschätzend zusammenfassen?',
 ];
 
+function cleanSuggestion(value: unknown) {
+  const text = String(value ?? '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) return '';
+  if (text.includes('{') || text.includes('}') || text.includes('[') || text.includes(']')) return '';
+  if (/suggestions|python|```|def |import |console\.log|function\s/i.test(text)) return '';
+  if (text.length > 160) return '';
+
+  return text.endsWith('?') ? text : `${text}?`;
+}
+
+function uniqueSuggestions(items: unknown[]) {
+  const seen = new Set<string>();
+  const suggestions: string[] = [];
+
+  for (const item of items) {
+    const clean = cleanSuggestion(item);
+    const key = clean.toLowerCase();
+    if (clean && !seen.has(key)) {
+      seen.add(key);
+      suggestions.push(clean);
+    }
+    if (suggestions.length === 3) break;
+  }
+
+  return suggestions;
+}
+
 function parseSuggestions(raw: string) {
+  const text = raw
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  const candidates = [text];
+  const objectMatch = text.match(/\{[\s\S]*\}/);
+  if (objectMatch) candidates.push(objectMatch[0]);
+  const arrayMatch = text.match(/\[[\s\S]*\]/);
+  if (arrayMatch) candidates.push(arrayMatch[0]);
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      const suggestions = Array.isArray(parsed) ? parsed : parsed?.suggestions;
+      if (Array.isArray(suggestions)) {
+        const clean = uniqueSuggestions(suggestions);
+        if (clean.length === 3) return clean;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
   try {
-    const parsed = JSON.parse(raw);
-    const suggestions = Array.isArray(parsed) ? parsed : parsed?.suggestions;
+    const parsedTwice = JSON.parse(JSON.parse(text));
+    const suggestions = Array.isArray(parsedTwice) ? parsedTwice : parsedTwice?.suggestions;
     if (Array.isArray(suggestions)) {
-      return suggestions
-        .map((item) => String(item ?? '').trim())
-        .filter(Boolean)
-        .slice(0, 3);
+      const clean = uniqueSuggestions(suggestions);
+      if (clean.length === 3) return clean;
     }
   } catch {
     // fall through to line-based parsing
   }
 
-  return raw
+  return uniqueSuggestions(text
     .split('\n')
     .map((line) => line.replace(/^\s*[-*\d.)]+\s*/, '').trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    .filter(Boolean));
 }
 
 export async function POST(request: NextRequest) {
@@ -60,6 +112,7 @@ Regeln:
 - Antworte ausschließlich als JSON: {"suggestions":["Frage 1","Frage 2","Frage 3"]}
 - Jede Frage ist konkret, deutsch, hilfreich und höchstens 120 Zeichen lang.
 - Keine Nummerierung, keine Erklärung, kein Markdown.
+- Kein Code, kein Python, keine technischen Beispiele.
 - Die Fragen sollen wahrscheinlich das sein, was der User nach der letzten KI-Antwort als Nächstes fragen könnte.`,
         },
         {
