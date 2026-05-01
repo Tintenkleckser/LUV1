@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Sparkles, MessageSquare, Table2, Target,
-  Lightbulb, Loader2, ClipboardCheck, RefreshCw, Pencil
+  Lightbulb, Loader2, Pencil
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
@@ -17,12 +17,6 @@ import { ExportButtons } from '@/components/export-buttons';
 interface ResultsClientProps {
   assessmentId: string;
 }
-
-const BAR_COLORS: Record<string, string> = {
-  '-3': 'bg-red-600', '-2': 'bg-orange-500', '-1': 'bg-amber-500',
-  '0': 'bg-yellow-400', '1': 'bg-lime-500', '2': 'bg-green-500',
-  '3': 'bg-emerald-600', 'X': 'bg-gray-300',
-};
 
 export function ResultsClient({ assessmentId }: ResultsClientProps) {
   const { data: session, status } = useSession() || {};
@@ -125,9 +119,6 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     }
   };
 
-  const ratings = assessment?.ratings ?? {};
-  const ratingEntries = Object.entries(ratings);
-
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -169,52 +160,14 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
       <main className="max-w-[1200px] mx-auto px-4 py-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h2 className="text-2xl font-display font-bold tracking-tight mb-1">
-            Ergebnisübersicht
+            KI-Auswertung
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
             Einschätzung vom {assessment?.createdAt ? new Date(assessment.createdAt).toLocaleDateString('de-DE') : ''}
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Ratings Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
-                Bewertungen
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {(ratingEntries ?? [])?.map(([name, val]: [string, any], idx: number) => (
-                <motion.div
-                  key={name}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  className="flex items-center gap-3"
-                >
-                  <span className="text-sm flex-1 truncate">{name}</span>
-                  <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${BAR_COLORS[String(val)] ?? 'bg-gray-300'}`}
-                      style={{
-                        width: `${val === 'X' ? 100 : ((Number(val) + 3) / 6) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="font-mono text-xs min-w-[24px] text-right">
-                    {val === 'X' ? 'X' : Number(val) > 0 ? `+${val}` : String(val)}
-                  </span>
-                </motion.div>
-              ))}
-              {(ratingEntries?.length ?? 0) === 0 && (
-                <p className="text-sm text-muted-foreground">Keine Bewertungen vorhanden</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* AI Analysis Panel */}
+        <div className="max-w-4xl">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -270,7 +223,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
                 )}
                 {analysisText ? (
                   <div>
-                    <div className="bg-muted/50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
+                    <div className="bg-muted/50 rounded-lg p-4 max-h-[70vh] overflow-y-auto">
                       <MarkdownRenderer content={analysisText} />
                     </div>
                     {!analyzing && (
