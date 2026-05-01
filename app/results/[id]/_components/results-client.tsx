@@ -41,6 +41,12 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [followUpPrompts, setFollowUpPrompts] = useState([
+    'Welche Kompetenzbereiche sollten zuerst bearbeitet werden?',
+    'Welche Beobachtungen wären für die nächste Einschätzung besonders wichtig?',
+    'Wie lässt sich die Einschätzung wertschätzend zusammenfassen?',
+  ]);
+  const [loadingFollowUps, setLoadingFollowUps] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollChatToBottom = () => {
@@ -120,6 +126,31 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     if (status === 'authenticated') initChat();
   }, [status, initChat]);
 
+  const updateFollowUps = async (assistantResponse: string, recentUserMessage: string) => {
+    if (!assistantResponse.trim()) return;
+    setLoadingFollowUps(true);
+    try {
+      const res = await fetch('/api/followups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assistant_response: assistantResponse,
+          recent_user_message: recentUserMessage,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.suggestions) && data.suggestions.length > 0) {
+          setFollowUpPrompts(data.suggestions.slice(0, 3));
+        }
+      }
+    } catch (err: any) {
+      console.error('Followup prompt error:', err);
+    } finally {
+      setLoadingFollowUps(false);
+    }
+  };
+
   const sendMessage = async (preset?: string) => {
     const userMsg = (preset ?? input).trim();
     if (!userMsg || sending) return;
@@ -178,6 +209,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
                 )));
                 setStreamingContent('');
                 setSending(false);
+                updateFollowUps(assistantMsg.content, userMsg);
                 return;
               } else if (parsed?.status === 'error') {
                 toast.error(parsed?.message ?? 'Fehler');
@@ -197,6 +229,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
           chat.id === chatId ? { ...chat, lastMessage: fullContent.slice(0, 240) } : chat
         )));
         setStreamingContent('');
+        updateFollowUps(fullContent, userMsg);
       }
       setSending(false);
     } catch (err: any) {
@@ -230,12 +263,6 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
       icon: Lightbulb,
       prompt: 'Bitte entwickle konkrete Förderansätze und nächste Schritte auf Basis der vorliegenden Kompetenzeinschätzung. Priorisiere die wichtigsten Maßnahmen.',
     },
-  ];
-
-  const followUpPrompts = [
-    'Welche Kompetenzbereiche sollten zuerst bearbeitet werden?',
-    'Welche Beobachtungen wären für die nächste Einschätzung besonders wichtig?',
-    'Wie lässt sich die Einschätzung wertschätzend zusammenfassen?',
   ];
 
   return (
@@ -433,6 +460,12 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
                   {prompt}
                 </Button>
               ))}
+              {loadingFollowUps && (
+                <div className="h-auto rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Vorschläge werden angepasst
+                </div>
+              )}
             </div>
           </div>
         </section>
