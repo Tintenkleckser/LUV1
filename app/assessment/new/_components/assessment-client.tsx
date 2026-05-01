@@ -112,11 +112,15 @@ export function AssessmentClient() {
         });
         setCompetencies(sortedComps);
       } else {
-        toast.error('Kompetenzen konnten nicht geladen werden');
+        const errData = await compRes.json().catch(() => null);
+        toast.error(errData?.error ?? 'Kompetenzen konnten nicht geladen werden');
       }
       if (questRes.ok) {
         const data = await questRes.json();
         setQuestions(data ?? []);
+      } else {
+        const errData = await questRes.json().catch(() => null);
+        toast.error(errData?.error ?? 'Fachfragen konnten nicht geladen werden');
       }
 
       // If editing an existing assessment, load its data

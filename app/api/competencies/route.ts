@@ -36,6 +36,6 @@ export async function GET() {
     return NextResponse.json(mapped);
   } catch (err: any) {
     console.error('Competencies error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }
