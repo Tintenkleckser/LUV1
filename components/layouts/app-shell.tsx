@@ -19,7 +19,7 @@ export function AppShell({
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/40">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -31,7 +31,7 @@ export function AppShell({
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 border-r bg-card transition-transform duration-normal ease-out lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 w-64 border-r bg-card/95 shadow-sm backdrop-blur transition-transform duration-normal ease-out lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -43,7 +43,7 @@ export function AppShell({
       {/* Main area */}
       <div className="lg:pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card/80 backdrop-blur-md px-4 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card/85 backdrop-blur-md px-4 sm:px-6">
           <Button
             variant="ghost"
             size="icon"

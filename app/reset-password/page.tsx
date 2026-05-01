@@ -96,8 +96,8 @@ function ResetPasswordContent() {
     return (
       <Card className="shadow-lg">
         <CardContent className="pt-6 text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mx-auto">
-            <Mail className="w-8 h-8 text-blue-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mx-auto">
+            <Mail className="w-8 h-8 text-primary" />
           </div>
           <h3 className="text-lg font-semibold">E-Mail gesendet</h3>
           <p className="text-sm text-muted-foreground">
