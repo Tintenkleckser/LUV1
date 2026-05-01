@@ -178,8 +178,8 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex flex-col">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+    <div className="h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex flex-col overflow-hidden">
+      <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-[900px] mx-auto px-4 h-14 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => router.push(`/results/${assessmentId}`)}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Ergebnisse
@@ -194,9 +194,9 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-[900px] w-full mx-auto px-4 py-4 flex flex-col">
+      <main className="min-h-0 flex-1 max-w-[900px] w-full mx-auto px-4 py-4 flex flex-col">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 pr-1 pb-4">
           {(messages?.length ?? 0) === 0 && !streamingContent && (
             <div className="text-center py-16">
               <Sparkles className="w-12 h-12 text-primary/20 mx-auto mb-4" />
@@ -278,7 +278,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
         </div>
 
         {/* Input */}
-        <div className="border-t pt-4">
+        <div className="shrink-0 border-t bg-background/80 backdrop-blur pt-4">
           <form
             onSubmit={(e: React.FormEvent) => { e.preventDefault(); sendMessage(); }}
             className="flex gap-2"
