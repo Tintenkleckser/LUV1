@@ -36,13 +36,21 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json();
 
+    const content = body?.content ?? '';
+    const chatId = body?.chat_id ?? '';
     const message = await prisma.message.create({
       data: {
-        chatId: body?.chat_id ?? '',
+        chatId,
         role: body?.role ?? 'user',
-        content: body?.content ?? '',
+        content,
       },
     });
+    if (chatId && content) {
+      await prisma.chat.update({
+        where: { id: chatId },
+        data: { lastMessage: String(content).slice(0, 240) },
+      });
+    }
     return NextResponse.json(message, { status: 201 });
   } catch (err: any) {
     console.error('Message POST error:', err);

@@ -20,9 +20,15 @@ export async function POST(request: NextRequest) {
     // Save user message
     if (chat_id && message) {
       try {
-        await prisma.message.create({
-          data: { chatId: chat_id, role: 'user', content: message },
-        });
+        await prisma.$transaction([
+          prisma.message.create({
+            data: { chatId: chat_id, role: 'user', content: message },
+          }),
+          prisma.chat.update({
+            where: { id: chat_id },
+            data: { lastMessage: `Frage: ${String(message).slice(0, 180)}` },
+          }),
+        ]);
       } catch (e: any) {
         console.error('Save user message error:', e);
       }
@@ -167,9 +173,15 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
           finalized = true;
           if (chat_id && buffer) {
             try {
-              await prisma.message.create({
-                data: { chatId: chat_id, role: 'assistant', content: buffer },
-              });
+              await prisma.$transaction([
+                prisma.message.create({
+                  data: { chatId: chat_id, role: 'assistant', content: buffer },
+                }),
+                prisma.chat.update({
+                  where: { id: chat_id },
+                  data: { lastMessage: buffer.slice(0, 240) },
+                }),
+              ]);
             } catch (e: any) {
               console.error('Save assistant message error:', e);
             }

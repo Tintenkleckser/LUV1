@@ -25,11 +25,19 @@ interface Message {
   created_at?: string;
 }
 
+interface ChatSummary {
+  id: string;
+  title: string;
+  lastMessage?: string | null;
+  createdAt?: string;
+}
+
 export function ChatClient({ assessmentId }: ChatClientProps) {
   const { data: session, status } = useSession() || {};
   const router = useRouter();
   const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<ChatSummary[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -50,6 +58,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
       const existingRes = await fetch(`/api/chats?assessment_id=${assessmentId}`);
       if (existingRes.ok) {
         const existingChats = await existingRes.json();
+        setChats(existingChats ?? []);
         if ((existingChats?.length ?? 0) > 0) {
           const existingChat = existingChats[0];
           setChatId(existingChat?.id ?? null);
@@ -76,6 +85,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
       if (res.ok) {
         const data = await res.json();
         setChatId(data?.id ?? null);
+        setChats((prev) => [data, ...(prev ?? [])]);
       }
     } catch (err: any) {
       console.error('Init chat error:', err);
@@ -83,6 +93,22 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
       setLoading(false);
     }
   }, [assessmentId]);
+
+  const loadChat = async (id: string) => {
+    setChatId(id);
+    setStreamingContent('');
+    setSending(false);
+    try {
+      const msgsRes = await fetch(`/api/messages?chat_id=${id}`);
+      if (msgsRes.ok) {
+        const msgsData = await msgsRes.json();
+        setMessages(msgsData ?? []);
+      }
+    } catch (err: any) {
+      console.error('Load chat error:', err);
+      toast.error('Chatverlauf konnte nicht geladen werden');
+    }
+  };
 
   useEffect(() => {
     if (status === 'authenticated') initChat();
@@ -142,6 +168,9 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
               } else if (parsed?.status === 'completed') {
                 const assistantMsg: Message = { role: 'assistant', content: parsed?.content ?? fullContent };
                 setMessages((prev) => [...(prev ?? []), assistantMsg]);
+                setChats((prev) => (prev ?? []).map((chat) => (
+                  chat.id === chatId ? { ...chat, lastMessage: assistantMsg.content.slice(0, 240) } : chat
+                )));
                 setStreamingContent('');
                 setSending(false);
                 return;
@@ -159,6 +188,9 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
       // If stream ended without completed
       if (fullContent) {
         setMessages((prev) => [...(prev ?? []), { role: 'assistant', content: fullContent }]);
+        setChats((prev) => (prev ?? []).map((chat) => (
+          chat.id === chatId ? { ...chat, lastMessage: fullContent.slice(0, 240) } : chat
+        )));
         setStreamingContent('');
       }
       setSending(false);
@@ -194,7 +226,30 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 max-w-[900px] w-full mx-auto px-4 py-4 flex flex-col">
+      <main className="min-h-0 flex-1 max-w-[1180px] w-full mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
+        <aside className="hidden lg:flex min-h-0 flex-col rounded-lg border bg-card/85 p-3">
+          <div className="text-xs font-semibold text-muted-foreground mb-3 px-1">
+            Bisherige Chatverläufe
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
+            {(chats ?? []).map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => loadChat(chat.id)}
+                className={`w-full rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/60 ${
+                  chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background/60'
+                }`}
+              >
+                <div className="text-xs font-medium truncate">{chat.title || 'Chatverlauf'}</div>
+                <div className="text-xs text-muted-foreground line-clamp-3 mt-1">
+                  {chat.lastMessage || 'Noch keine gespeicherte Antwort'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <section className="min-h-0 flex flex-col">
         {/* Messages */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 pr-1 pb-4">
           {(messages?.length ?? 0) === 0 && !streamingContent && (
@@ -295,6 +350,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
             </Button>
           </form>
         </div>
+        </section>
       </main>
     </div>
   );

@@ -110,6 +110,7 @@ model Chat {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title        String    @default("Neuer Chat")
+  lastMessage  String?   @map("last_message") @db.Text
   createdAt    DateTime  @default(now())
   messages     Message[]
 }
