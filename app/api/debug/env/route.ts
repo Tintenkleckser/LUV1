@@ -60,10 +60,10 @@ export async function GET() {
       supabase.from('wissen_handbuch').select('*', { count: 'exact', head: true }),
     ]);
     supabaseChecks = {
-      competencies: competencies.error ? { error: competencies.error.message } : { count: competencies.count },
-      questions: questions.error ? { error: questions.error.message } : { count: questions.count },
-      wissen_luv: wissenLuv.error ? { error: wissenLuv.error.message } : { count: wissenLuv.count },
-      wissen_handbuch: wissenHandbuch.error ? { error: wissenHandbuch.error.message } : { count: wissenHandbuch.count },
+      competencies: competencies.error ? { error: competencies.error } : { count: competencies.count },
+      questions: questions.error ? { error: questions.error } : { count: questions.count },
+      wissen_luv: wissenLuv.error ? { error: wissenLuv.error } : { count: wissenLuv.count },
+      wissen_handbuch: wissenHandbuch.error ? { error: wissenHandbuch.error } : { count: wissenHandbuch.count },
     };
   } catch (error: any) {
     supabaseChecks = { error: error?.message ?? 'Unknown Supabase check error' };
@@ -76,5 +76,6 @@ export async function GET() {
     supabaseChecks,
     nextauthUrlPresent: Boolean(process.env.NEXTAUTH_URL),
     supabaseUrlPresent: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    supabaseServiceRolePresent: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
   });
 }
