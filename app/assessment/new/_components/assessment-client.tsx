@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { CSSProperties, useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -69,7 +69,25 @@ const BAR_COLORS: Record<string, string> = {
 
 function getRatingBarWidth(val: RatingValue): number {
   if (val === 'X') return 0;
-  return ((Number(val) + 3) / 6) * 100;
+  return (Math.abs(Number(val)) / 3) * 50;
+}
+
+function getRatingBarStyle(val: RatingValue): CSSProperties {
+  if (val === 'X') {
+    return { left: 0, width: '100%' };
+  }
+
+  const numericValue = Number(val);
+  if (numericValue === 0) {
+    return { left: '48%', width: '4%' };
+  }
+
+  const width = getRatingBarWidth(val);
+  if (numericValue < 0) {
+    return { left: `${50 - width}%`, width: `${width}%` };
+  }
+
+  return { left: '50%', width: `${width}%` };
 }
 
 export function AssessmentClient() {
@@ -712,10 +730,11 @@ export function AssessmentClient() {
                             <span className="flex-1 truncate">{comp?.name ?? ''}</span>
                             {hasRating ? (
                               <div className="flex items-center gap-1 min-w-[60px]">
-                                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                                <div className="relative w-full h-2 bg-muted rounded-full overflow-hidden">
+                                  <div className="absolute left-1/2 top-0 h-full w-px bg-background/80" />
                                   <div
-                                    className={`h-full rounded-full transition-all ${BAR_COLORS[String(rating)] ?? 'bg-gray-300'}`}
-                                    style={{ width: `${rating === 'X' ? 100 : getRatingBarWidth(rating)}%` }}
+                                    className={`absolute top-0 h-full rounded-full transition-all ${BAR_COLORS[String(rating)] ?? 'bg-gray-300'}`}
+                                    style={getRatingBarStyle(rating)}
                                   />
                                 </div>
                                 <span className="font-mono text-[10px] min-w-[20px] text-right">
