@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, Sparkles, MessageSquare, Table2, Target,
-  Lightbulb, Loader2, Pencil
+  Lightbulb, Loader2, Pencil, Send, Bot, User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
@@ -16,6 +17,18 @@ import { ExportButtons } from '@/components/export-buttons';
 
 interface ResultsClientProps {
   assessmentId: string;
+}
+
+interface Message {
+  id?: string;
+  role: string;
+  content: string;
+}
+
+interface ChatSummary {
+  id: string;
+  title: string;
+  lastMessage?: string | null;
 }
 
 export function ResultsClient({ assessmentId }: ResultsClientProps) {
@@ -27,7 +40,22 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
   const [analysisText, setAnalysisText] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisType, setAnalysisType] = useState('');
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const analysisRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollChatToBottom = () => {
+    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollChatToBottom();
+  }, [messages, streamingContent]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -55,6 +83,56 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
   useEffect(() => {
     if (status === 'authenticated') fetchData();
   }, [status, fetchData]);
+
+  const loadChat = async (id: string) => {
+    setChatId(id);
+    setStreamingContent('');
+    setSending(false);
+    try {
+      const msgsRes = await fetch(`/api/messages?chat_id=${id}`);
+      if (msgsRes.ok) {
+        const msgsData = await msgsRes.json();
+        setMessages(msgsData ?? []);
+      }
+    } catch (err: any) {
+      console.error('Load chat error:', err);
+      toast.error('Chatverlauf konnte nicht geladen werden');
+    }
+  };
+
+  const initChat = useCallback(async () => {
+    try {
+      const existingRes = await fetch(`/api/chats?assessment_id=${assessmentId}`);
+      if (existingRes.ok) {
+        const existingChats = await existingRes.json();
+        setChats(existingChats ?? []);
+        if ((existingChats?.length ?? 0) > 0) {
+          await loadChat(existingChats[0]?.id);
+          return;
+        }
+      }
+
+      const res = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assessment_id: assessmentId,
+          title: 'Kompetenzeinschätzung nach LuV - Chat',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChatId(data?.id ?? null);
+        setChats((prev) => [data, ...(prev ?? [])]);
+      }
+    } catch (err: any) {
+      console.error('Init chat error:', err);
+    }
+  }, [assessmentId]);
+
+  useEffect(() => {
+    if (status === 'authenticated') initChat();
+  }, [status, initChat]);
 
   const startAnalysis = async (type: string) => {
     setAnalyzing(true);
@@ -119,6 +197,92 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     }
   };
 
+  const sendMessage = async (preset?: string) => {
+    const userMsg = (preset ?? input).trim();
+    if (!userMsg || sending) return;
+    setInput('');
+    setSending(true);
+    setStreamingContent('');
+
+    const newUserMsg: Message = { role: 'user', content: userMsg };
+    setMessages((prev) => [...(prev ?? []), newUserMsg]);
+
+    try {
+      const res = await fetch('/api/chat-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message: userMsg,
+          assessment_id: assessmentId,
+          history: (messages ?? []).slice(-10).map((m: Message) => ({
+            role: m?.role ?? 'user',
+            content: m?.content ?? '',
+          })),
+        }),
+      });
+
+      if (!res.ok) {
+        toast.error('Nachricht konnte nicht gesendet werden');
+        setSending(false);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let partialRead = '';
+      let fullContent = '';
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+        partialRead += decoder.decode(value, { stream: true });
+        const lines = partialRead.split('\n');
+        partialRead = lines.pop() ?? '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed?.status === 'streaming') {
+                fullContent += parsed?.content ?? '';
+                setStreamingContent(fullContent);
+              } else if (parsed?.status === 'completed') {
+                const assistantMsg: Message = { role: 'assistant', content: parsed?.content ?? fullContent };
+                setMessages((prev) => [...(prev ?? []), assistantMsg]);
+                setChats((prev) => (prev ?? []).map((chat) => (
+                  chat.id === chatId ? { ...chat, lastMessage: assistantMsg.content.slice(0, 240) } : chat
+                )));
+                setStreamingContent('');
+                setSending(false);
+                return;
+              } else if (parsed?.status === 'error') {
+                toast.error(parsed?.message ?? 'Fehler');
+                setSending(false);
+                return;
+              }
+            } catch (e) {
+              // skip
+            }
+          }
+        }
+      }
+
+      if (fullContent) {
+        setMessages((prev) => [...(prev ?? []), { role: 'assistant', content: fullContent }]);
+        setChats((prev) => (prev ?? []).map((chat) => (
+          chat.id === chatId ? { ...chat, lastMessage: fullContent.slice(0, 240) } : chat
+        )));
+        setStreamingContent('');
+      }
+      setSending(false);
+    } catch (err: any) {
+      console.error('Send message error:', err);
+      toast.error('Fehler beim Senden');
+      setSending(false);
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -146,13 +310,6 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
             >
               <Pencil className="w-4 h-4 mr-1" /> Bearbeiten
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/chat/${assessmentId}`)}
-            >
-              <MessageSquare className="w-4 h-4 mr-1" /> Chat
-            </Button>
           </div>
         </div>
       </header>
@@ -167,8 +324,8 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
           </p>
         </motion.div>
 
-        <div className="max-w-4xl">
-          <Card>
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
@@ -223,7 +380,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
                 )}
                 {analysisText ? (
                   <div>
-                    <div className="bg-muted/50 rounded-lg p-4 max-h-[70vh] overflow-y-auto">
+                    <div className="bg-muted/50 rounded-lg p-4">
                       <MarkdownRenderer content={analysisText} />
                     </div>
                     {!analyzing && (
@@ -240,16 +397,151 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
                   </div>
                 ) : null}
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Chat Link */}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => router.push(`/chat/${assessmentId}`)}
+          <Card className="min-w-0 xl:sticky xl:top-20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-primary" />
+                Nachfragen
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-left h-auto whitespace-normal"
+                  disabled={sending}
+                  onClick={() => sendMessage('Bitte erläutere die wichtigsten Befunde dieser Auswertung noch einmal in einfacher, praxisnaher Sprache.')}
+                >
+                  Befunde erläutern
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-left h-auto whitespace-normal"
+                  disabled={sending}
+                  onClick={() => sendMessage('Welche nächsten Schritte und Fördermaßnahmen sind auf Basis dieser Einschätzung besonders sinnvoll?')}
+                >
+                  Nächste Schritte
+                </Button>
+              </div>
+
+              <div className="rounded-lg border bg-background/70">
+                <div className="border-b px-3 py-2">
+                  <div className="text-xs font-semibold text-muted-foreground">Bisherige Chatverläufe</div>
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                    {(chats ?? []).map((chat) => (
+                      <button
+                        key={chat.id}
+                        onClick={() => loadChat(chat.id)}
+                        className={`min-w-[180px] max-w-[220px] rounded-md border px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60 ${
+                          chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background'
+                        }`}
+                      >
+                        <div className="font-medium truncate">{chat.title || 'Chatverlauf'}</div>
+                        <div className="text-muted-foreground truncate">
+                          {chat.lastMessage || 'Noch keine gespeicherte Antwort'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-[52vh] min-h-[360px] overflow-y-auto overscroll-contain px-3 py-3 space-y-3">
+                  {(messages?.length ?? 0) === 0 && !streamingContent && (
+                    <div className="text-center py-10">
+                      <Sparkles className="w-10 h-10 text-primary/20 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        Stellen Sie Rückfragen zur Auswertung, ohne den Text zu verlassen.
+                      </p>
+                    </div>
+                  )}
+
+                  {(messages ?? []).map((msg: Message, idx: number) => (
+                    <motion.div
+                      key={msg?.id ?? idx}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex gap-2 ${msg?.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      {msg?.role !== 'user' && (
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Bot className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                      )}
+                      <div
+                        className={`max-w-[86%] rounded-xl px-3 py-2 text-sm ${
+                          msg?.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-card border shadow-sm'
+                        }`}
+                      >
+                        {msg?.role === 'user' ? (
+                          <div className="whitespace-pre-wrap">{msg?.content ?? ''}</div>
+                        ) : (
+                          <MarkdownRenderer content={msg?.content ?? ''} />
+                        )}
+                      </div>
+                      {msg?.role === 'user' && (
+                        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <User className="w-3.5 h-3.5 text-primary-foreground" />
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+
+                  {streamingContent && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-2 justify-start"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div className="max-w-[86%] rounded-xl px-3 py-2 text-sm bg-card border shadow-sm">
+                        <MarkdownRenderer content={streamingContent} />
+                        <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1" />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {sending && !streamingContent && (
+                    <div className="flex gap-2 justify-start">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Bot className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div className="bg-card border rounded-xl px-3 py-2 shadow-sm">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              <form
+                onSubmit={(e: React.FormEvent) => {
+                  e.preventDefault();
+                  sendMessage();
+                }}
+                className="flex gap-2"
               >
-                <MessageSquare className="w-4 h-4 mr-1" />
-                Rückfragen im Chat stellen
-              </Button>
+                <Input
+                  placeholder="Rückfrage stellen..."
+                  value={input}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+                  disabled={sending}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={sending || !input?.trim()}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
