@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -159,6 +160,23 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
         const encoder = new TextEncoder();
         let buffer = '';
         let partialRead = '';
+        let finalized = false;
+
+        const finalize = async () => {
+          if (finalized) return;
+          finalized = true;
+          if (chat_id && buffer) {
+            try {
+              await prisma.message.create({
+                data: { chatId: chat_id, role: 'assistant', content: buffer },
+              });
+            } catch (e: any) {
+              console.error('Save assistant message error:', e);
+            }
+          }
+          const finalData = JSON.stringify({ status: 'completed', content: buffer });
+          controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
+        };
 
         try {
           while (true) {
@@ -171,17 +189,7 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
               if (line.startsWith('data: ')) {
                 const data = line.slice(6);
                 if (data === '[DONE]') {
-                  if (chat_id && buffer) {
-                    try {
-                      await prisma.message.create({
-                        data: { chatId: chat_id, role: 'assistant', content: buffer },
-                      });
-                    } catch (e: any) {
-                      console.error('Save assistant message error:', e);
-                    }
-                  }
-                  const finalData = JSON.stringify({ status: 'completed', content: buffer });
-                  controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
+                  await finalize();
                   return;
                 }
                 try {
@@ -198,6 +206,7 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
               }
             }
           }
+          await finalize();
         } catch (error) {
           console.error('Chat stream error:', error);
           const errData = JSON.stringify({ status: 'error', message: 'Stream-Fehler' });
