@@ -76,15 +76,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch knowledge base
+    // Fetch knowledge base (ALL entries, no limits)
     let luvContext = '';
     let handbuchContext = '';
-    let dik2Context = '';
     try {
-      const [luvResult, handbuchResult, dik2Result] = await Promise.all([
+      const [luvResult, handbuchResult] = await Promise.all([
         supabase.from('wissen_luv').select('*').limit(80),
         supabase.from('wissen_handbuch').select('*').order('category', { ascending: true }).limit(80),
-        supabase.from('wissen_dik2').select('*').order('category', { ascending: true }).limit(80),
       ]);
 
       // Structure LUV by category/type
@@ -124,30 +122,6 @@ export async function POST(request: NextRequest) {
           })
           .join('\n\n');
       }
-
-      // Structure DIK2 by category/source for diagnostic reference
-      const dik2Entries = dik2Result?.data ?? [];
-      if (dik2Entries.length > 0) {
-        const dik2ByCategory: Record<string, { source: string; content: string }[]> = {};
-        for (const entry of dik2Entries) {
-          const cat = entry?.category ?? entry?.kategorie ?? entry?.source_file ?? 'Allgemein';
-          if (!dik2ByCategory[cat]) dik2ByCategory[cat] = [];
-          dik2ByCategory[cat].push({
-            source: entry?.source_file ?? '',
-            content: entry?.content ?? '',
-          });
-        }
-        dik2Context = Object.entries(dik2ByCategory)
-          .map(([cat, items]) => {
-            const itemTexts = items
-              .map((it) => it.source ? `**${it.source}:** ${it.content}` : it.content)
-              .filter(Boolean)
-              .join('\n')
-              .slice(0, 12000);
-            return `### ${cat}\n${itemTexts}`;
-          })
-          .join('\n\n');
-      }
     } catch (e: any) {
       console.error('Knowledge fetch error:', e);
     }
@@ -161,7 +135,7 @@ WICHTIG: Dir liegen sowohl quantitative Bewertungen als auch qualitative Fachfra
 Interpretiere die Skala wie folgt: +3 = deutlich ausgeprägte Stärke, +2 = Stärke, +1 = eher Stärke, 0 = durchschnittlich, -1 = eher Entwicklungsbereich, -2 = Entwicklungsbereich, -3 = deutlicher Entwicklungsbedarf.
 
 Formuliere sachlich, wertschätzend und diagnostisch fundiert. Keine Diagnosen oder Bewertungen der Persönlichkeit.
-${assessmentContext}${handbuchContext ? '\n\n## REFERENZ-HANDBUCH (systematisch nutzen!)\nDas folgende Handbuch ist deine zentrale Wissensgrundlage. Nutze es systematisch bei jeder Antwort. Es enthält Definitionen, Bewertungskriterien und Handlungsempfehlungen.\n\n' + handbuchContext : ''}${dik2Context ? '\n\n## DIK2-WISSEN (fachdiagnostisch nutzen!)\nNutze diese DIK2-Wissensbasis besonders für diagnostische Einordnung, Kompetenzdefinitionen, fachliche Begründungen und Förderlogik.\n\n' + dik2Context : ''}${luvContext ? '\n\n## VORLAGEN (LUV)\n' + luvContext : ''}
+${assessmentContext}${handbuchContext ? '\n\n## REFERENZ-HANDBUCH (systematisch nutzen!)\nDas folgende Handbuch ist deine zentrale Wissensgrundlage. Nutze es systematisch bei jeder Antwort. Es enthält Definitionen, Bewertungskriterien und Handlungsempfehlungen.\n\n' + handbuchContext : ''}${luvContext ? '\n\n## VORLAGEN (LUV)\n' + luvContext : ''}
 
 Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
 

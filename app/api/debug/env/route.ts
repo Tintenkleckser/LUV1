@@ -53,19 +53,17 @@ export async function GET() {
   }
 
   try {
-    const [competencies, questions, wissenLuv, wissenHandbuch, wissenDik2] = await Promise.all([
+    const [competencies, questions, wissenLuv, wissenHandbuch] = await Promise.all([
       supabase.from('competencies').select('*', { count: 'exact', head: true }),
       supabase.from('questions').select('*', { count: 'exact', head: true }),
       supabase.from('wissen_luv').select('*', { count: 'exact', head: true }),
       supabase.from('wissen_handbuch').select('*', { count: 'exact', head: true }),
-      supabase.from('wissen_dik2').select('*', { count: 'exact', head: true }),
     ]);
     supabaseChecks = {
       competencies: competencies.error ? { error: competencies.error } : { count: competencies.count },
       questions: questions.error ? { error: questions.error } : { count: questions.count },
       wissen_luv: wissenLuv.error ? { error: wissenLuv.error } : { count: wissenLuv.count },
       wissen_handbuch: wissenHandbuch.error ? { error: wissenHandbuch.error } : { count: wissenHandbuch.count },
-      wissen_dik2: wissenDik2.error ? { error: wissenDik2.error } : { count: wissenDik2.count },
     };
   } catch (error: any) {
     supabaseChecks = { error: error?.message ?? 'Unknown Supabase check error' };
