@@ -49,13 +49,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch knowledge base from Supabase (ALL entries, no limits)
+    // Fetch knowledge base from Supabase
     let luvContext = '';
     let handbuchContext = '';
+    let dik2Context = '';
     try {
-      const [luvResult, handbuchResult] = await Promise.all([
+      const [luvResult, handbuchResult, dik2Result] = await Promise.all([
         supabase.from('wissen_luv').select('*').limit(80),
         supabase.from('wissen_handbuch').select('*').order('category', { ascending: true }).limit(80),
+        supabase.from('wissen_dik2').select('*').order('category', { ascending: true }).limit(80),
       ]);
 
       // Structure LUV by category/type
@@ -95,6 +97,30 @@ export async function POST(request: NextRequest) {
           })
           .join('\n\n');
       }
+
+      // Structure DIK2 by category/source for diagnostic reference
+      const dik2Entries = dik2Result?.data ?? [];
+      if (dik2Entries.length > 0) {
+        const dik2ByCategory: Record<string, { source: string; content: string }[]> = {};
+        for (const entry of dik2Entries) {
+          const cat = entry?.category ?? entry?.kategorie ?? entry?.source_file ?? 'Allgemein';
+          if (!dik2ByCategory[cat]) dik2ByCategory[cat] = [];
+          dik2ByCategory[cat].push({
+            source: entry?.source_file ?? '',
+            content: entry?.content ?? '',
+          });
+        }
+        dik2Context = Object.entries(dik2ByCategory)
+          .map(([cat, items]) => {
+            const itemTexts = items
+              .map((it) => it.source ? `**${it.source}:** ${it.content}` : it.content)
+              .filter(Boolean)
+              .join('\n')
+              .slice(0, 12000);
+            return `### ${cat}\n${itemTexts}`;
+          })
+          .join('\n\n');
+      }
     } catch (e: any) {
       console.error('Knowledge base fetch error:', e);
     }
@@ -114,6 +140,7 @@ export async function POST(request: NextRequest) {
     let systemContext = `Antworte immer auf Deutsch. Nutze ausschließlich die vorliegenden Daten. Erfinde keine zusätzlichen Informationen. Formuliere präzise und verständlich. Sprich von "Teilnehmende/r" oder "der/die Teilnehmende", niemals von "Klient".`;
 
     if (handbuchContext) systemContext += `\n\n## REFERENZ-HANDBUCH (WICHTIG – systematisch nutzen!)\nDas folgende Handbuch ist deine zentrale Wissensgrundlage. Du MUSST es systematisch lesen und bei jeder Analyse heranziehen. Es enthält Definitionen, Bewertungskriterien und Handlungsempfehlungen für die einzelnen Kompetenzbereiche. Ordne die Bewertungen den jeweiligen Handbuch-Kategorien zu und verwende die dort beschriebenen Kriterien und Empfehlungen.\n\n${handbuchContext}`;
+    if (dik2Context) systemContext += `\n\n## DIK2-WISSEN (WICHTIG – fachdiagnostisch nutzen!)\nDie folgende DIK2-Wissensbasis ergänzt das Handbuch. Nutze sie für diagnostische Einordnung, Kompetenzdefinitionen, fachliche Begründungen und Förderlogik.\n\n${dik2Context}`;
     if (luvContext) systemContext += `\n\n## VORLAGEN (LUV)\nDie folgenden Vorlagen dienen als Orientierung für die Struktur und Formulierung deiner Analyse.\n\n${luvContext}`;
 
     let systemPrompt = '';
