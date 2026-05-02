@@ -20,7 +20,7 @@ export async function GET() {
     return NextResponse.json(clients ?? []);
   } catch (err: any) {
     console.error('Clients GET error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }
 
@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(client, { status: 201 });
   } catch (err: any) {
     console.error('Clients POST error:', err);
-    return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
+    if (err?.code === 'P2002') {
+      return NextResponse.json({ error: 'Diese Teilnehmenden-ID existiert bereits' }, { status: 400 });
+    }
+    if (err?.code === 'P2003') {
+      return NextResponse.json({ error: 'Der angemeldete Benutzer wurde in der Datenbank nicht gefunden' }, { status: 400 });
+    }
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }
