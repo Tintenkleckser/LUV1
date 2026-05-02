@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import {
+  createClientViaSupabase,
+  findClientViaSupabase,
+  isPrismaConnectionError,
+  listClientsViaSupabase,
+} from '@/lib/app-db-fallback';
 
 export async function GET() {
   try {
@@ -12,11 +18,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
     const userId = (session.user as any)?.id ?? '';
-    const clients = await prisma.client.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { assessments: true } } },
-    });
+    let clients;
+    try {
+      clients = await prisma.client.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: { _count: { select: { assessments: true } } },
+      });
+    } catch (err: any) {
+      if (!isPrismaConnectionError(err)) throw err;
+      clients = await listClientsViaSupabase(userId);
+    }
     return NextResponse.json(clients ?? []);
   } catch (err: any) {
     console.error('Clients GET error:', err);
@@ -39,16 +51,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate
-    const existing = await prisma.client.findUnique({
-      where: { userId_clientCode: { userId, clientCode: clientCode.trim() } },
-    });
+    let existing;
+    try {
+      existing = await prisma.client.findUnique({
+        where: { userId_clientCode: { userId, clientCode: clientCode.trim() } },
+      });
+    } catch (err: any) {
+      if (!isPrismaConnectionError(err)) throw err;
+      existing = await findClientViaSupabase(userId, clientCode.trim());
+    }
     if (existing) {
       return NextResponse.json({ error: 'Diese Teilnehmenden-ID existiert bereits' }, { status: 400 });
     }
 
-    const client = await prisma.client.create({
-      data: { clientCode: clientCode.trim(), userId },
-    });
+    let client;
+    try {
+      client = await prisma.client.create({
+        data: { clientCode: clientCode.trim(), userId },
+      });
+    } catch (err: any) {
+      if (!isPrismaConnectionError(err)) throw err;
+      client = await createClientViaSupabase(userId, clientCode.trim());
+    }
     return NextResponse.json(client, { status: 201 });
   } catch (err: any) {
     console.error('Clients POST error:', err);

@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { findUserByEmailViaSupabase, isPrismaConnectionError } from '@/lib/app-db-fallback';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -17,9 +18,15 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email und Passwort sind erforderlich');
         }
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        let user: any = null;
+        try {
+          user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
+        } catch (error: any) {
+          if (!isPrismaConnectionError(error)) throw error;
+          user = await findUserByEmailViaSupabase(credentials.email);
+        }
         if (!user || !user.password) {
           throw new Error('Ungültige Anmeldedaten');
         }
