@@ -135,3 +135,19 @@ export async function findAssessmentViaSupabase(id: string) {
   if (error) throw error;
   return data;
 }
+
+export async function updateAssessmentViaSupabase(id: string, data: Record<string, any>) {
+  const payload = {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const { data: assessment, error } = await supabase
+    .from('Assessment')
+    .update(payload)
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return assessment;
+}

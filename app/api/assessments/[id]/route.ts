@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { findAssessmentViaSupabase, isPrismaConnectionError, updateAssessmentViaSupabase } from '@/lib/app-db-fallback';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -11,10 +12,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     if (!session?.user) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
-    const assessment = await prisma.assessment.findUnique({
-      where: { id: params?.id ?? '' },
-      include: { client: true },
-    });
+    let assessment;
+    try {
+      assessment = await prisma.assessment.findUnique({
+        where: { id: params?.id ?? '' },
+        include: { client: true },
+      });
+    } catch (err: any) {
+      if (!isPrismaConnectionError(err)) throw err;
+      assessment = await findAssessmentViaSupabase(params?.id ?? '');
+    }
     if (!assessment) {
       return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
     }
@@ -44,10 +51,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (body?.[key] !== undefined) updateData[key] = body[key];
     }
 
-    const assessment = await prisma.assessment.update({
-      where: { id: params?.id ?? '' },
-      data: updateData,
-    });
+    let assessment;
+    try {
+      assessment = await prisma.assessment.update({
+        where: { id: params?.id ?? '' },
+        data: updateData,
+      });
+    } catch (err: any) {
+      if (!isPrismaConnectionError(err)) throw err;
+      assessment = await updateAssessmentViaSupabase(params?.id ?? '', updateData);
+    }
     return NextResponse.json(assessment);
   } catch (err: any) {
     console.error('Assessment PATCH error:', err);

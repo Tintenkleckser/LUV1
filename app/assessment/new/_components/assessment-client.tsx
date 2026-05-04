@@ -373,7 +373,12 @@ export function AssessmentClient() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-[1200px] mx-auto px-4 h-14 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/dashboard')}
+            disabled={savingDraft || saving}
+          >
             <ArrowLeft className="w-4 h-4 mr-1" /> Dashboard
           </Button>
           <div className="flex items-center gap-2">
