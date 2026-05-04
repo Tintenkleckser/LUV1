@@ -16,14 +16,19 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email und Passwort sind erforderlich');
         }
+        const email = credentials.email.toLowerCase().trim();
         let user: any = null;
         try {
-          user = await prisma.user.findUnique({
-            where: { email: credentials.email },
-          });
-        } catch (error: any) {
-          if (!isPrismaConnectionError(error)) throw error;
-          user = await findUserByEmailViaSupabase(credentials.email);
+          user = await findUserByEmailViaSupabase(email);
+        } catch (supabaseError: any) {
+          try {
+            user = await prisma.user.findUnique({
+              where: { email },
+            });
+          } catch (prismaError: any) {
+            if (isPrismaConnectionError(prismaError)) throw supabaseError;
+            throw prismaError;
+          }
         }
         if (!user || !user.password) {
           throw new Error('Ungültige Anmeldedaten');

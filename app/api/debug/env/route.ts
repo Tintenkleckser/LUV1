@@ -53,13 +53,17 @@ export async function GET() {
   }
 
   try {
-    const [competencies, questions, wissenLuv, wissenHandbuch] = await Promise.all([
+    const [usersRest, clientsRest, competencies, questions, wissenLuv, wissenHandbuch] = await Promise.all([
+      supabase.from('User').select('*', { count: 'exact', head: true }),
+      supabase.from('Client').select('*', { count: 'exact', head: true }),
       supabase.from('competencies').select('*', { count: 'exact', head: true }),
       supabase.from('questions').select('*', { count: 'exact', head: true }),
       supabase.from('wissen_luv').select('*', { count: 'exact', head: true }),
       supabase.from('wissen_handbuch').select('*', { count: 'exact', head: true }),
     ]);
     supabaseChecks = {
+      User: usersRest.error ? { error: usersRest.error } : { count: usersRest.count },
+      Client: clientsRest.error ? { error: clientsRest.error } : { count: clientsRest.count },
       competencies: competencies.error ? { error: competencies.error } : { count: competencies.count },
       questions: questions.error ? { error: questions.error } : { count: questions.count },
       wissen_luv: wissenLuv.error ? { error: wissenLuv.error } : { count: wissenLuv.count },

@@ -9,17 +9,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password, name } = body ?? {};
+    const normalizedEmail = String(email ?? '').toLowerCase().trim();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return NextResponse.json({ error: 'Email und Passwort sind erforderlich' }, { status: 400 });
     }
 
     let existingUser: any = null;
     try {
-      existingUser = await prisma.user.findUnique({ where: { email } });
-    } catch (error: any) {
-      if (!isPrismaConnectionError(error)) throw error;
-      existingUser = await findUserByEmailViaSupabase(email);
+      existingUser = await findUserByEmailViaSupabase(normalizedEmail);
+    } catch (supabaseError: any) {
+      try {
+        existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      } catch (prismaError: any) {
+        if (isPrismaConnectionError(prismaError)) throw supabaseError;
+        throw prismaError;
+      }
     }
     if (existingUser) {
       return NextResponse.json({ error: 'Diese E-Mail-Adresse ist bereits registriert' }, { status: 400 });
@@ -28,12 +33,16 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
     let user: any;
     try {
-      user = await prisma.user.create({
-        data: { email, password: hashedPassword, name: name ?? null },
-      });
-    } catch (error: any) {
-      if (!isPrismaConnectionError(error)) throw error;
-      user = await createUserViaSupabase({ email, password: hashedPassword, name: name ?? null });
+      user = await createUserViaSupabase({ email: normalizedEmail, password: hashedPassword, name: name ?? null });
+    } catch (supabaseError: any) {
+      try {
+        user = await prisma.user.create({
+          data: { email: normalizedEmail, password: hashedPassword, name: name ?? null },
+        });
+      } catch (prismaError: any) {
+        if (isPrismaConnectionError(prismaError)) throw supabaseError;
+        throw prismaError;
+      }
     }
 
     return NextResponse.json({ id: user.id, email: user.email, name: user.name }, { status: 201 });
