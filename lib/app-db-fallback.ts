@@ -2,7 +2,12 @@ import { supabase } from '@/lib/supabase';
 
 export function isPrismaConnectionError(error: any) {
   const message = String(error?.message ?? '');
-  return error?.code === 'P1001' || message.includes("Can't reach database server");
+  return error?.code === 'P1000'
+    || error?.code === 'P1001'
+    || message.includes("Can't reach database server")
+    || message.includes('Authentication failed against database server')
+    || message.includes('provided database credentials')
+    || message.includes('Tenant or user not found');
 }
 
 export function createId() {
