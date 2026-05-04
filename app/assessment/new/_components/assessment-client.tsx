@@ -219,6 +219,8 @@ export function AssessmentClient() {
 
   const currentCompetency = competencies?.[currentIndex] ?? null;
   const currentCategory = currentCompetency?.category ?? '';
+  const currentRating = currentCompetency?.id ? ratings?.[currentCompetency.id] : undefined;
+  const hasCurrentRating = currentRating !== undefined;
 
   const handleRate = (value: RatingValue) => {
     if (!currentCompetency?.id) return;
@@ -229,6 +231,10 @@ export function AssessmentClient() {
   const isLastCompetency = currentIndex >= (competencies?.length ?? 0) - 1;
 
   const goNext = () => {
+    if (!hasCurrentRating) {
+      toast.error('Bitte bewerten Sie diese Kompetenz, bevor Sie fortfahren.');
+      return;
+    }
     if (isLastCompetency && hasQuestions) {
       // After last competency, seamlessly transition to questions
       setPhase('questions');
@@ -663,7 +669,7 @@ export function AssessmentClient() {
                         variant={isLastCompetency && hasQuestions ? 'default' : 'outline'}
                         size="sm"
                         onClick={goNext}
-                        disabled={isLastCompetency && !hasQuestions}
+                        disabled={!hasCurrentRating || (isLastCompetency && !hasQuestions)}
                       >
                         {isLastCompetency && hasQuestions ? (
                           <>Weiter zu Fachfragen <ChevronRight className="w-4 h-4 ml-1" /></>

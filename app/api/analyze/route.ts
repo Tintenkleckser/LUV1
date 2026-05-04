@@ -6,6 +6,36 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { supabase } from '@/lib/supabase';
+import { findAssessmentViaSupabase, isPrismaConnectionError } from '@/lib/app-db-fallback';
+
+function insufficientDataMessage(ratedCount: number, totalCount: number, answeredQuestions: number) {
+  const percent = totalCount > 0 ? Math.round((ratedCount / totalCount) * 100) : 0;
+  return `Die vorliegenden Daten reichen noch nicht für eine fachlich belastbare Auswertung aus.
+
+Aktueller Stand:
+- Kompetenzeinschätzungen: ${ratedCount}/${totalCount} (${percent} %)
+- Beantwortete Fachfragen: ${answeredQuestions}/7
+
+Für eine Auswertung müssen mindestens 80 % der Kompetenzen eingeschätzt und mindestens 4 Fachfragen beantwortet sein. Bitte ergänzen Sie die fehlenden Angaben und starten Sie die Auswertung danach erneut.`;
+}
+
+function completedTextResponse(content: string) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: 'completed', content })}\n\n`));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,11 +49,18 @@ export async function POST(request: NextRequest) {
 
     // Fetch assessment with question answers from database
     let questionsContext = '';
+    let answeredQuestionCount = 0;
     if (assessment_id) {
       try {
-        const assessment = await prisma.assessment.findUnique({
-          where: { id: assessment_id },
-        });
+        let assessment: any = null;
+        try {
+          assessment = await prisma.assessment.findUnique({
+            where: { id: assessment_id },
+          });
+        } catch (error: any) {
+          if (!isPrismaConnectionError(error)) throw error;
+          assessment = await findAssessmentViaSupabase(assessment_id);
+        }
         if (assessment) {
           const qAnswers: string[] = [];
           // Fetch question texts from Supabase
@@ -43,10 +80,20 @@ export async function POST(request: NextRequest) {
           if (qAnswers.length > 0) {
             questionsContext = qAnswers.join('\n\n');
           }
+          answeredQuestionCount = qAnswers.length;
         }
       } catch (e: any) {
         console.error('Fetch assessment questions error:', e);
       }
+    }
+
+    const { count: totalCompetencies } = await supabase
+      .from('competencies')
+      .select('*', { count: 'exact', head: true });
+    const ratedCount = Object.keys(ratings ?? {}).length;
+    const totalCount = totalCompetencies ?? (competencies?.length ?? 0);
+    if (totalCount === 0 || ratedCount / totalCount < 0.8 || answeredQuestionCount < 4) {
+      return completedTextResponse(insufficientDataMessage(ratedCount, totalCount, answeredQuestionCount));
     }
 
     // Fetch knowledge base from Supabase (ALL entries, no limits)

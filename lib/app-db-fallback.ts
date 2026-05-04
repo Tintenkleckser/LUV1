@@ -125,3 +125,13 @@ export async function createAssessmentViaSupabase(userId: string, body: any) {
   if (error) throw error;
   return data;
 }
+
+export async function findAssessmentViaSupabase(id: string) {
+  const { data, error } = await supabase
+    .from('Assessment')
+    .select('*, client:Client(*)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
