@@ -190,6 +190,12 @@ export default function AuthPage() {
               >
                 Datenschutz und Cookies
               </Link>
+              <Link
+                href="/hilfe"
+                className="block text-xs text-muted-foreground hover:text-primary hover:underline"
+              >
+                Kurzanleitung und FAQ
+              </Link>
             </div>
           </CardContent>
         </Card>

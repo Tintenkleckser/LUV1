@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ClipboardCheck, Plus, Users, LogOut, History, PlayCircle,
-  Search, Hash, Loader2, ChevronRight, Calendar, Pencil, FileEdit
+  Search, Hash, Loader2, ChevronRight, Calendar, Pencil, HelpCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -160,6 +161,11 @@ export function DashboardClient() {
             <h1 className="text-lg font-display font-semibold tracking-tight">Kompetenzeinschätzung nach LuV</h1>
           </div>
           <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/hilfe">
+                <HelpCircle className="w-4 h-4 mr-1" /> Hilfe
+              </Link>
+            </Button>
             <button
               onClick={() => router.push('/profile')}
               className="text-sm text-muted-foreground hover:text-foreground hidden sm:block transition-colors cursor-pointer"
