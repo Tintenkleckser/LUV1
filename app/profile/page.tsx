@@ -58,8 +58,10 @@ export default function ProfilePage() {
   useEffect(() => {
     if (status === 'authenticated') {
       fetchProfile();
+    } else if (status === 'unauthenticated') {
+      router.replace('/');
     }
-  }, [status, fetchProfile]);
+  }, [status, fetchProfile, router]);
 
   const handleSaveName = async () => {
     if (!name.trim()) {
@@ -100,7 +102,30 @@ export default function ProfilePage() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 px-4 py-8">
+        <main className="mx-auto max-w-xl">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="mb-4">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Zurück zum Dashboard
+          </Button>
+          <Card>
+            <CardHeader>
+              <CardTitle>Profil konnte nicht geladen werden</CardTitle>
+              <CardDescription>
+                Bitte versuchen Sie es erneut oder kehren Sie zum Dashboard zurück.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={fetchProfile}>
+                Erneut laden
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">

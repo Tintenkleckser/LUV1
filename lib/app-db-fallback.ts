@@ -42,6 +42,46 @@ export async function createUserViaSupabase(data: { email: string; password: str
   return user;
 }
 
+export async function findUserProfileViaSupabase(userId: string) {
+  const { data: user, error } = await supabase
+    .from('User')
+    .select('id, name, email, createdAt')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!user) return null;
+
+  const clients = await listClientsViaSupabase(userId);
+  const { count: assessmentsCount, error: assessmentsError } = await supabase
+    .from('Assessment')
+    .select('*', { count: 'exact', head: true })
+    .eq('userId', userId);
+  if (assessmentsError) throw assessmentsError;
+
+  return {
+    ...user,
+    clients,
+    _count: {
+      clients: clients.length,
+      assessments: assessmentsCount ?? 0,
+    },
+  };
+}
+
+export async function updateUserProfileViaSupabase(userId: string, data: { name: string }) {
+  const { data: user, error } = await supabase
+    .from('User')
+    .update({
+      name: data.name,
+      updatedAt: new Date().toISOString(),
+    })
+    .eq('id', userId)
+    .select('id, name, email')
+    .single();
+  if (error) throw error;
+  return user;
+}
+
 export async function listClientsViaSupabase(userId: string) {
   const { data: clients, error } = await supabase
     .from('Client')
