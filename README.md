@@ -2,6 +2,12 @@
 
 KI-gestützte Kompetenzeinschätzung für Berater:innen in der beruflichen Rehabilitation.
 
+## Ausführliche Dokumentation
+
+Eine ausführliche Beschreibung der App, ihrer Workflows, Datenstruktur, KI-Funktionen, Datenschutzaspekte und Betriebsnotizen befindet sich hier:
+
+[docs/APP_DOKUMENTATION.md](docs/APP_DOKUMENTATION.md)
+
 ## Funktionen
 
 - **Authentifizierung:** Login/Registrierung mit E-Mail und Passwort, Passwort-Reset per Magic Link
