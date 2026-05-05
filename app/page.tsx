@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -183,6 +184,12 @@ export default function AuthPage() {
                   ? 'Noch kein Konto? Jetzt registrieren'
                   : 'Bereits registriert? Jetzt anmelden'}
               </button>
+              <Link
+                href="/datenschutz"
+                className="block text-xs text-muted-foreground hover:text-primary hover:underline"
+              >
+                Datenschutz und Cookies
+              </Link>
             </div>
           </CardContent>
         </Card>
