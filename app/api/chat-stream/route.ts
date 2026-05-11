@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     const saveMessageAndPreview = async (role: string, content: string, prefix?: string) => {
       if (!chat_id || !content) return;
       const text = chatPreviewText(content, prefix);
+      const chatData = role === 'user' ? { lastMessage: text, text } : { lastMessage: text };
 
       try {
         const chat = await prisma.chat.findFirst({
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
           }),
           prisma.chat.update({
             where: { id: chat_id },
-            data: { lastMessage: text, text },
+            data: chatData,
           }),
         ]);
       } catch (error: any) {
@@ -81,14 +82,14 @@ export async function POST(request: NextRequest) {
         const chat = await findChatForUserViaSupabase(chat_id, userId);
         if (!chat) return;
         await createMessageViaSupabase(chat_id, role, content);
-        await updateChatPreviewViaSupabase(chat_id, text);
+        await updateChatPreviewViaSupabase(chat_id, text, role === 'user');
       }
     };
 
     // Save user message
     if (chat_id && message) {
       try {
-        await saveMessageAndPreview('user', message, 'Frage');
+        await saveMessageAndPreview('user', message);
       } catch (e: any) {
         console.error('Save user message error:', e);
       }

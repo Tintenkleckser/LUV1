@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const content = body?.content ?? '';
     const chatId = body?.chat_id ?? '';
     const role = body?.role ?? 'user';
-    const text = chatPreviewText(content, role === 'user' ? 'Frage' : undefined);
+    const text = chatPreviewText(content);
 
     try {
       const chat = await prisma.chat.findFirst({
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       if (chatId && content) {
         await prisma.chat.update({
           where: { id: chatId },
-          data: { lastMessage: text, text },
+          data: role === 'user' ? { lastMessage: text, text } : { lastMessage: text },
         });
       }
       return NextResponse.json(message, { status: 201 });
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
       const message = await createMessageViaSupabase(chatId, role, content);
       if (chatId && content) {
-        await updateChatPreviewViaSupabase(chatId, text);
+        await updateChatPreviewViaSupabase(chatId, text, role === 'user');
       }
       return NextResponse.json(message, { status: 201 });
     }

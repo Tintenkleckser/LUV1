@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
-  ArrowLeft, Send, MessageSquare, Bot, User, Loader2, Sparkles
+  ArrowLeft, Send, MessageSquare, Bot, User, Loader2, Sparkles, Pencil, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
@@ -138,6 +138,65 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
     }
   };
 
+  const chatLabel = (chat: ChatSummary) => (
+    chat.text || chat.title || chat.lastMessage || 'Neuer Chat'
+  );
+
+  const renameChat = async (chat: ChatSummary) => {
+    const nextText = window.prompt('Chat umbenennen', chatLabel(chat));
+    if (!nextText?.trim()) return;
+
+    try {
+      const res = await fetch('/api/chats', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: chat.id, text: nextText.trim() }),
+      });
+      if (!res.ok) {
+        toast.error('Chat konnte nicht umbenannt werden');
+        return;
+      }
+      const updated = await res.json();
+      setChats((prev) => (prev ?? []).map((item) => (
+        item.id === chat.id ? { ...item, ...updated } : item
+      )));
+    } catch (err: any) {
+      console.error('Rename chat error:', err);
+      toast.error('Chat konnte nicht umbenannt werden');
+    }
+  };
+
+  const deleteChat = async (chat: ChatSummary) => {
+    if (!window.confirm(`Chat "${chatLabel(chat)}" wirklich löschen?`)) return;
+
+    try {
+      const res = await fetch(`/api/chats?id=${encodeURIComponent(chat.id)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        toast.error('Chat konnte nicht gelöscht werden');
+        return;
+      }
+
+      const remainingChats = (chats ?? []).filter((item) => item.id !== chat.id);
+      setChats(remainingChats);
+      if (chatId === chat.id) {
+        const nextChat = remainingChats[0];
+        if (nextChat) {
+          await loadChat(nextChat.id);
+        } else {
+          setChatId(null);
+          setMessages([]);
+          await createNewChat();
+        }
+      }
+      toast.success('Chat gelöscht');
+    } catch (err: any) {
+      console.error('Delete chat error:', err);
+      toast.error('Chat konnte nicht gelöscht werden');
+    }
+  };
+
   useEffect(() => {
     if (status === 'authenticated') initChat();
   }, [status, initChat]);
@@ -152,6 +211,9 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
     // Add user message to UI
     const newUserMsg: Message = { role: 'user', content: userMsg };
     setMessages((prev) => [...(prev ?? []), newUserMsg]);
+    setChats((prev) => (prev ?? []).map((chat) => (
+      chat.id === chatId ? { ...chat, text: userMsg, lastMessage: userMsg } : chat
+    )));
 
     try {
       const res = await fetch('/api/chat-stream', {
@@ -237,6 +299,44 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
     );
   }
 
+  const renderChatItem = (chat: ChatSummary, mobile = false) => (
+    <div
+      key={chat.id}
+      className={`flex items-center gap-2 rounded-md border px-2 py-2 transition-colors hover:bg-muted/60 ${
+        chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background/60'
+      } ${mobile ? 'min-w-[280px]' : 'w-full'}`}
+    >
+      <button
+        type="button"
+        onClick={() => loadChat(chat.id)}
+        className="min-w-0 flex-1 text-left flex items-center gap-2"
+      >
+        <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate text-sm text-muted-foreground">{chatLabel(chat)}</span>
+      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0 text-muted-foreground"
+        onClick={() => renameChat(chat)}
+        aria-label="Chat umbenennen"
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={() => deleteChat(chat)}
+        aria-label="Chat löschen"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex flex-col overflow-hidden">
       <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -265,20 +365,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
             </Button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
-            {(chats ?? []).map((chat) => (
-              <button
-                key={chat.id}
-                onClick={() => loadChat(chat.id)}
-                className={`w-full rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/60 ${
-                  chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background/60'
-                }`}
-              >
-                <div className="text-xs font-medium truncate">{chat.title || 'Chatverlauf'}</div>
-                <div className="text-xs text-muted-foreground line-clamp-3 mt-1">
-                  {chat.text || chat.lastMessage || 'Noch keine gespeicherte Antwort'}
-                </div>
-              </button>
-            ))}
+            {(chats ?? []).map((chat) => renderChatItem(chat))}
           </div>
         </aside>
 
@@ -290,20 +377,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
             </Button>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {(chats ?? []).map((chat) => (
-              <button
-                key={chat.id}
-                onClick={() => loadChat(chat.id)}
-                className={`min-w-[220px] rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/60 ${
-                  chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background/60'
-                }`}
-              >
-                <div className="text-xs font-medium truncate">{chat.title || 'Chatverlauf'}</div>
-                <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                  {chat.text || chat.lastMessage || 'Noch keine gespeicherte Antwort'}
-                </div>
-              </button>
-            ))}
+            {(chats ?? []).map((chat) => renderChatItem(chat, true))}
           </div>
         </div>
 

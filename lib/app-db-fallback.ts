@@ -309,11 +309,13 @@ export async function createMessageViaSupabase(chatId: string, role: string, con
   return data;
 }
 
-export async function updateChatPreviewViaSupabase(chatId: string, text: string) {
-  const payload = {
-    text,
+export async function updateChatPreviewViaSupabase(chatId: string, text: string, updateText = false) {
+  const payload: Record<string, any> = {
     last_message: text,
   };
+  if (updateText) {
+    payload.text = text;
+  }
 
   let result = await supabase
     .from('Chat')
@@ -333,4 +335,48 @@ export async function updateChatPreviewViaSupabase(chatId: string, text: string)
 
   if (result.error) throw result.error;
   return normalizeChatRow(result.data);
+}
+
+export async function updateChatTextViaSupabase(chatId: string, userId: string, text: string) {
+  const chat = await findChatForUserViaSupabase(chatId, userId);
+  if (!chat) return null;
+
+  let result = await supabase
+    .from('Chat')
+    .update({
+      text,
+      title: text,
+      last_message: text,
+    })
+    .eq('id', chatId)
+    .select('*')
+    .single();
+
+  if (result.error && isMissingTextColumn(result.error)) {
+    result = await supabase
+      .from('Chat')
+      .update({
+        title: text,
+        last_message: text,
+      })
+      .eq('id', chatId)
+      .select('*')
+      .single();
+  }
+
+  if (result.error) throw result.error;
+  return normalizeChatRow(result.data);
+}
+
+export async function deleteChatViaSupabase(chatId: string, userId: string) {
+  const chat = await findChatForUserViaSupabase(chatId, userId);
+  if (!chat) return false;
+
+  const { error } = await supabase
+    .from('Chat')
+    .delete()
+    .eq('id', chatId)
+    .eq('userId', userId);
+  if (error) throw error;
+  return true;
 }
