@@ -6,7 +6,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { supabase } from '@/lib/supabase';
-import { findAssessmentViaSupabase, isPrismaConnectionError } from '@/lib/app-db-fallback';
+import {
+  chatPreviewText,
+  createMessageViaSupabase,
+  findAssessmentViaSupabase,
+  findChatForUserViaSupabase,
+  isPrismaConnectionError,
+  isPrismaRecoverableDbError,
+  updateChatPreviewViaSupabase,
+} from '@/lib/app-db-fallback';
 
 function insufficientDataMessage(ratedCount: number, totalCount: number, answeredQuestions: number) {
   const percent = totalCount > 0 ? Math.round((ratedCount / totalCount) * 100) : 0;
@@ -43,22 +51,44 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return new Response(JSON.stringify({ error: 'Nicht autorisiert' }), { status: 401 });
     }
+    const userId = (session.user as any)?.id ?? '';
 
     const body = await request.json();
     const { chat_id, message, assessment_id, history } = body ?? {};
 
-    // Save user message
-    if (chat_id && message) {
+    const saveMessageAndPreview = async (role: string, content: string, prefix?: string) => {
+      if (!chat_id || !content) return;
+      const text = chatPreviewText(content, prefix);
+
       try {
+        const chat = await prisma.chat.findFirst({
+          where: { id: chat_id, userId },
+          select: { id: true },
+        });
+        if (!chat) return;
+
         await prisma.$transaction([
           prisma.message.create({
-            data: { chatId: chat_id, role: 'user', content: message },
+            data: { chatId: chat_id, role, content },
           }),
           prisma.chat.update({
             where: { id: chat_id },
-            data: { lastMessage: `Frage: ${String(message).slice(0, 180)}` },
+            data: { lastMessage: text, text },
           }),
         ]);
+      } catch (error: any) {
+        if (!isPrismaRecoverableDbError(error)) throw error;
+        const chat = await findChatForUserViaSupabase(chat_id, userId);
+        if (!chat) return;
+        await createMessageViaSupabase(chat_id, role, content);
+        await updateChatPreviewViaSupabase(chat_id, text);
+      }
+    };
+
+    // Save user message
+    if (chat_id && message) {
+      try {
+        await saveMessageAndPreview('user', message, 'Frage');
       } catch (e: any) {
         console.error('Save user message error:', e);
       }
@@ -127,7 +157,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (assessment_id && (totalCount === 0 || ratedCount / totalCount < 0.8 || answeredQuestionCount < 4)) {
-      return completedTextResponse(insufficientDataMessage(ratedCount, totalCount, answeredQuestionCount));
+      const content = insufficientDataMessage(ratedCount, totalCount, answeredQuestionCount);
+      try {
+        await saveMessageAndPreview('assistant', content);
+      } catch (e: any) {
+        console.error('Save insufficient-data message error:', e);
+      }
+      return completedTextResponse(content);
     }
 
     // Fetch knowledge base (ALL entries, no limits)
@@ -227,15 +263,7 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
           finalized = true;
           if (chat_id && buffer) {
             try {
-              await prisma.$transaction([
-                prisma.message.create({
-                  data: { chatId: chat_id, role: 'assistant', content: buffer },
-                }),
-                prisma.chat.update({
-                  where: { id: chat_id },
-                  data: { lastMessage: buffer.slice(0, 240) },
-                }),
-              ]);
+              await saveMessageAndPreview('assistant', buffer);
             } catch (e: any) {
               console.error('Save assistant message error:', e);
             }

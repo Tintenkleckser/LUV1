@@ -28,6 +28,7 @@ interface Message {
 interface ChatSummary {
   id: string;
   title: string;
+  text?: string | null;
   lastMessage?: string | null;
   createdAt?: string;
 }
@@ -107,6 +108,33 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
     } catch (err: any) {
       console.error('Load chat error:', err);
       toast.error('Chatverlauf konnte nicht geladen werden');
+    }
+  };
+
+  const createNewChat = async () => {
+    setSending(false);
+    setStreamingContent('');
+    setMessages([]);
+    try {
+      const res = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assessment_id: assessmentId,
+          title: 'Kompetenzeinschätzung nach LuV – Chat',
+          text: 'Neuer Chat',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChatId(data?.id ?? null);
+        setChats((prev) => [data, ...(prev ?? [])]);
+      } else {
+        toast.error('Neuer Chat konnte nicht angelegt werden');
+      }
+    } catch (err: any) {
+      console.error('Create chat error:', err);
+      toast.error('Neuer Chat konnte nicht angelegt werden');
     }
   };
 
@@ -228,8 +256,13 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
 
       <main className="min-h-0 flex-1 max-w-[1180px] w-full mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
         <aside className="hidden lg:flex min-h-0 flex-col rounded-lg border bg-card/85 p-3">
-          <div className="text-xs font-semibold text-muted-foreground mb-3 px-1">
-            Bisherige Chatverläufe
+          <div className="mb-3 px-1 flex items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-muted-foreground">
+              Bisherige Chatverläufe
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={createNewChat}>
+              Neuer Chat
+            </Button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
             {(chats ?? []).map((chat) => (
@@ -242,12 +275,37 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
               >
                 <div className="text-xs font-medium truncate">{chat.title || 'Chatverlauf'}</div>
                 <div className="text-xs text-muted-foreground line-clamp-3 mt-1">
-                  {chat.lastMessage || 'Noch keine gespeicherte Antwort'}
+                  {chat.text || chat.lastMessage || 'Noch keine gespeicherte Antwort'}
                 </div>
               </button>
             ))}
           </div>
         </aside>
+
+        <div className="lg:hidden rounded-lg border bg-card/85 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold text-muted-foreground">Bisherige Chatverläufe</div>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={createNewChat}>
+              Neuer Chat
+            </Button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {(chats ?? []).map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => loadChat(chat.id)}
+                className={`min-w-[220px] rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/60 ${
+                  chat.id === chatId ? 'bg-primary/10 border-primary/30' : 'bg-background/60'
+                }`}
+              >
+                <div className="text-xs font-medium truncate">{chat.title || 'Chatverlauf'}</div>
+                <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                  {chat.text || chat.lastMessage || 'Noch keine gespeicherte Antwort'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <section className="min-h-0 flex flex-col">
         {/* Messages */}

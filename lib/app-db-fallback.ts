@@ -10,6 +10,10 @@ export function isPrismaConnectionError(error: any) {
     || message.includes('Tenant or user not found');
 }
 
+export function isPrismaRecoverableDbError(error: any) {
+  return isPrismaConnectionError(error) || error?.code === 'P2022';
+}
+
 export function createId() {
   return `cm${crypto.randomUUID().replace(/-/g, '')}`;
 }
@@ -190,4 +194,143 @@ export async function updateAssessmentViaSupabase(id: string, data: Record<strin
     .single();
   if (error) throw error;
   return assessment;
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+export function chatPreviewText(content: string, prefix?: string) {
+  const clean = normalizeWhitespace(String(content ?? ''));
+  if (!clean) return prefix ?? 'Neuer Chat';
+  const preview = clean.slice(0, 240);
+  return prefix ? `${prefix}: ${preview}` : preview;
+}
+
+export function normalizeChatRow(chat: any) {
+  const text = chat?.text ?? chat?.Text ?? chat?.lastMessage ?? chat?.last_message ?? null;
+  return {
+    ...chat,
+    text,
+    lastMessage: chat?.lastMessage ?? chat?.last_message ?? text,
+    createdAt: chat?.createdAt ?? chat?.created_at,
+  };
+}
+
+function isMissingTextColumn(error: any) {
+  const message = String(error?.message ?? error?.details ?? '');
+  return error?.code === 'PGRST204'
+    || message.includes("'text'")
+    || message.includes('"text"')
+    || message.includes("'Text'")
+    || message.includes('"Text"');
+}
+
+export async function listChatsViaSupabase(userId: string, assessmentId?: string | null) {
+  let query = supabase
+    .from('Chat')
+    .select('*')
+    .eq('userId', userId)
+    .order('createdAt', { ascending: false });
+  if (assessmentId) query = query.eq('assessmentId', assessmentId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map(normalizeChatRow);
+}
+
+export async function createChatViaSupabase(userId: string, body: any) {
+  const payload = {
+    id: createId(),
+    assessmentId: body?.assessment_id ?? null,
+    clientId: body?.client_id ?? null,
+    userId,
+    title: body?.title ?? 'Neuer Chat',
+    text: body?.text ?? body?.title ?? 'Neuer Chat',
+    createdAt: new Date().toISOString(),
+  };
+
+  let result = await supabase
+    .from('Chat')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  if (result.error && isMissingTextColumn(result.error)) {
+    const { text, ...payloadWithoutText } = payload;
+    result = await supabase
+      .from('Chat')
+      .insert(payloadWithoutText)
+      .select('*')
+      .single();
+  }
+
+  if (result.error) throw result.error;
+  return normalizeChatRow(result.data);
+}
+
+export async function findChatForUserViaSupabase(chatId: string, userId: string) {
+  const { data, error } = await supabase
+    .from('Chat')
+    .select('*')
+    .eq('id', chatId)
+    .eq('userId', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? normalizeChatRow(data) : null;
+}
+
+export async function listMessagesViaSupabase(chatId: string, userId: string) {
+  const chat = await findChatForUserViaSupabase(chatId, userId);
+  if (!chat) return null;
+
+  const { data, error } = await supabase
+    .from('Message')
+    .select('*')
+    .eq('chatId', chatId)
+    .order('createdAt', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createMessageViaSupabase(chatId: string, role: string, content: string) {
+  const { data, error } = await supabase
+    .from('Message')
+    .insert({
+      id: createId(),
+      chatId,
+      role,
+      content,
+      createdAt: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateChatPreviewViaSupabase(chatId: string, text: string) {
+  const payload = {
+    text,
+    last_message: text,
+  };
+
+  let result = await supabase
+    .from('Chat')
+    .update(payload)
+    .eq('id', chatId)
+    .select('*')
+    .single();
+
+  if (result.error && isMissingTextColumn(result.error)) {
+    result = await supabase
+      .from('Chat')
+      .update({ last_message: text })
+      .eq('id', chatId)
+      .select('*')
+      .single();
+  }
+
+  if (result.error) throw result.error;
+  return normalizeChatRow(result.data);
 }

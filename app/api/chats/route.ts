@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import {
+  createChatViaSupabase,
+  isPrismaRecoverableDbError,
+  listChatsViaSupabase,
+  normalizeChatRow,
+} from '@/lib/app-db-fallback';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,11 +24,17 @@ export async function GET(request: NextRequest) {
     const where: any = { userId };
     if (assessmentId) where.assessmentId = assessmentId;
 
-    const chats = await prisma.chat.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json(chats ?? []);
+    try {
+      const chats = await prisma.chat.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+      });
+      return NextResponse.json((chats ?? []).map(normalizeChatRow));
+    } catch (error: any) {
+      if (!isPrismaRecoverableDbError(error)) throw error;
+      const chats = await listChatsViaSupabase(userId, assessmentId);
+      return NextResponse.json(chats ?? []);
+    }
   } catch (err: any) {
     console.error('Chats GET error:', err);
     return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
@@ -38,15 +50,22 @@ export async function POST(request: NextRequest) {
     const userId = (session.user as any)?.id ?? '';
     const body = await request.json();
 
-    const chat = await prisma.chat.create({
-      data: {
-        assessmentId: body?.assessment_id ?? null,
-        clientId: body?.client_id ?? null,
-        userId,
-        title: body?.title ?? 'Neuer Chat',
-      },
-    });
-    return NextResponse.json(chat, { status: 201 });
+    try {
+      const chat = await prisma.chat.create({
+        data: {
+          assessmentId: body?.assessment_id ?? null,
+          clientId: body?.client_id ?? null,
+          userId,
+          title: body?.title ?? 'Neuer Chat',
+          text: body?.text ?? body?.title ?? 'Neuer Chat',
+        },
+      });
+      return NextResponse.json(normalizeChatRow(chat), { status: 201 });
+    } catch (error: any) {
+      if (!isPrismaRecoverableDbError(error)) throw error;
+      const chat = await createChatViaSupabase(userId, body);
+      return NextResponse.json(chat, { status: 201 });
+    }
   } catch (err: any) {
     console.error('Chat POST error:', err);
     return NextResponse.json({ error: 'Interner Fehler' }, { status: 500 });
