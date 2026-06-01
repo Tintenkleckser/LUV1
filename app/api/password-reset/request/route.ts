@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const { sendEmail } = await import('@/lib/email');
     const result = await sendEmail({
       to: user.email,
-      subject: 'Passwort zurücksetzen – Kompetenzeinschätzung nach LuV',
+      subject: 'Passwort zurücksetzen – Assistent LuV',
       html: htmlBody,
     });
 

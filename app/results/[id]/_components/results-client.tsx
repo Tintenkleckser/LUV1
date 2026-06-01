@@ -103,7 +103,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assessment_id: assessmentId,
-          title: 'Kompetenzeinschätzung nach LuV - Chat',
+          title: 'Assistent LuV - Chat',
           text: 'Neuer Chat',
         }),
       });
@@ -124,7 +124,8 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     const title = chat.title?.trim();
     const isGenericTitle = !title
       || title === 'Neuer Chat'
-      || title.startsWith('Kompetenzeinschätzung nach LuV');
+      || title.startsWith('Kompetenzeinschätzung nach LuV')
+      || title.startsWith('Assistent LuV');
 
     return isGenericTitle
       ? (chat.text || chat.lastMessage || title || 'Neuer Chat')
@@ -203,7 +204,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assessment_id: assessmentId,
-          title: 'Kompetenzeinschätzung nach LuV - Chat',
+          title: 'Assistent LuV - Chat',
         }),
       });
       if (res.ok) {

@@ -222,10 +222,10 @@ export default function ResetPasswordPage() {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4 overflow-hidden">
-            <img src="/logo.png" alt="Kompetenzeinschätzung Logo" className="w-12 h-12 object-contain" />
+            <img src="/logo.png" alt="Assistent LuV Logo" className="w-12 h-12 object-contain" />
           </div>
           <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">
-            Kompetenzeinschätzung nach LuV
+            Assistent LuV
           </h1>
         </div>
         <Suspense fallback={

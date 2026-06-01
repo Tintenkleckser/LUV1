@@ -13,16 +13,16 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata() {
   const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
   return {
-    title: 'Kompetenzeinschätzung nach LuV',
-    description: 'KI-gestützte Kompetenzeinschätzung nach LuV für Berater:innen',
+    title: 'Assistent LuV',
+    description: 'KI-gestützter Assistent für Kompetenzeinschätzungen nach LuV',
     metadataBase: new URL(baseUrl),
     icons: {
       icon: '/logo.png',
       shortcut: '/logo.png',
     },
     openGraph: {
-      title: 'Kompetenzeinschätzung nach LuV',
-      description: 'KI-gestützte Kompetenzeinschätzung nach LuV für Berater:innen',
+      title: 'Assistent LuV',
+      description: 'KI-gestützter Assistent für Kompetenzeinschätzungen nach LuV',
       images: ['/og-image.png'],
     },
   };

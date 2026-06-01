@@ -158,7 +158,7 @@ export function DashboardClient() {
             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
               <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
             </div>
-            <h1 className="text-lg font-display font-semibold tracking-tight">Kompetenzeinschätzung nach LuV</h1>
+            <h1 className="text-lg font-display font-semibold tracking-tight">Assistent LuV</h1>
           </div>
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm">
