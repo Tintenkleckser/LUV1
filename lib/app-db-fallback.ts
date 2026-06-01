@@ -368,6 +368,22 @@ export async function updateChatTextViaSupabase(chatId: string, userId: string, 
   return normalizeChatRow(result.data);
 }
 
+export async function updateChatTitleViaSupabase(chatId: string, userId: string, title: string) {
+  const chat = await findChatForUserViaSupabase(chatId, userId);
+  if (!chat) return null;
+
+  const { data, error } = await supabase
+    .from('Chat')
+    .update({ title })
+    .eq('id', chatId)
+    .eq('userId', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return normalizeChatRow(data);
+}
+
 export async function deleteChatViaSupabase(chatId: string, userId: string) {
   const chat = await findChatForUserViaSupabase(chatId, userId);
   if (!chat) return false;

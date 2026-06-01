@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Base system context — shared across all analysis types
-    let systemContext = `Antworte immer auf Deutsch. Nutze ausschließlich die vorliegenden Daten. Erfinde keine zusätzlichen Informationen. Formuliere präzise und verständlich. Sprich von "Teilnehmende/r" oder "der/die Teilnehmende", niemals von "Klient".`;
+    let systemContext = `Antworte immer auf Deutsch. Nutze ausschließlich die vorliegenden Daten. Erfinde keine zusätzlichen Informationen. Formuliere präzise und verständlich. Sprich von "Teilnehmende/r" oder "der/die Teilnehmende", niemals von "Klient". Die Nutzer:innen dürfen dich in der Du-Form ansprechen. Antworte ihnen trotzdem konsequent in der Sie-Form.`;
 
     if (handbuchContext) systemContext += `\n\n## REFERENZ-HANDBUCH (WICHTIG – systematisch nutzen!)\nDas folgende Handbuch ist deine zentrale Wissensgrundlage. Du MUSST es systematisch lesen und bei jeder Analyse heranziehen. Es enthält Definitionen, Bewertungskriterien und Handlungsempfehlungen für die einzelnen Kompetenzbereiche. Ordne die Bewertungen den jeweiligen Handbuch-Kategorien zu und verwende die dort beschriebenen Kriterien und Empfehlungen.\n\n${handbuchContext}`;
     if (luvContext) systemContext += `\n\n## VORLAGEN (LUV)\nDie folgenden Vorlagen dienen als Orientierung für die Struktur und Formulierung deiner Analyse.\n\n${luvContext}`;
@@ -178,13 +178,13 @@ Deine Aufgabe ist es, aus den Ergebnissen ein prägnantes Stärken-Schwächen-Pr
 
 Arbeite dabei nach folgenden Regeln:
 Interpretiere die Skala wie folgt:
-+3 = deutlich ausgeprägte Stärke
-+2 = Stärke
-+1 = eher Stärke
++3 = stark überdurchschnittlich
++2 = überdurchschnittlich
++1 = leicht überdurchschnittlich
 0 = durchschnittliche Ausprägung
--1 = eher Entwicklungsbereich
--2 = Entwicklungsbereich
--3 = deutlicher Entwicklungsbedarf
+-1 = leicht unterdurchschnittlich
+-2 = unterdurchschnittlich
+-3 = stark unterdurchschnittlich
 
 Identifiziere:
 - die wichtigsten Stärken der teilnehmenden Person
@@ -222,13 +222,13 @@ Vorgehen:
 3. Formuliere eine kurze verbale Zusammenfassung der Kompetenzen der teilnehmenden Person im Bereich der jeweiligen Kategorie.
 
 Interpretation der Skala:
-+3 = stark ausgeprägt
-+2 = ausgeprägt
-+1 = eher vorhanden
++3 = stark überdurchschnittlich
++2 = überdurchschnittlich
++1 = leicht überdurchschnittlich
 0 = durchschnittlich
--1 = eher schwach ausgeprägt
--2 = schwach ausgeprägt
--3 = deutlich schwach ausgeprägt
+-1 = leicht unterdurchschnittlich
+-2 = unterdurchschnittlich
+-3 = stark unterdurchschnittlich
 
 Anforderungen an die Zusammenfassung:
 - 3–5 Sätze pro Kompetenzkategorie
@@ -286,7 +286,7 @@ ${systemContext}`;
 Du erhältst die Einschätzungsergebnisse einer teilnehmenden Person. Erstelle eine vollständige Analyse mit folgenden drei Teilen:
 
 **Teil 1 – Stärken-Schwächen-Profil:**
-Interpretiere die Skala: +3 = deutlich ausgeprägte Stärke, +2 = Stärke, +1 = eher Stärke, 0 = durchschnittlich, -1 = eher Entwicklungsbereich, -2 = Entwicklungsbereich, -3 = deutlicher Entwicklungsbedarf.
+Interpretiere die Skala: +3 = stark überdurchschnittlich, +2 = überdurchschnittlich, +1 = leicht überdurchschnittlich, 0 = durchschnittlich, -1 = leicht unterdurchschnittlich, -2 = unterdurchschnittlich, -3 = stark unterdurchschnittlich.
 Erstelle: Kurzbeschreibung des Gesamtprofils (3–4 Sätze), zentrale Stärken, Entwicklungsfelder, auffällige Muster.
 
 **Teil 2 – Verbalisierung nach Kompetenzkategorien:**

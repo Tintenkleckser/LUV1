@@ -50,13 +50,13 @@ Die Einschätzung basiert auf Kompetenzmerkmalen aus der Tabelle `competencies`.
 
 Jede Kompetenz wird auf einer Skala bewertet:
 
-- `-3`: deutlicher Entwicklungsbedarf
-- `-2`: Entwicklungsbereich
-- `-1`: eher Entwicklungsbereich
-- `0`: durchschnittlich / altersgerecht
-- `+1`: eher Stärke
-- `+2`: Stärke
-- `+3`: deutlich ausgeprägte Stärke
+- `-3`: stark unterdurchschnittlich
+- `-2`: unterdurchschnittlich
+- `-1`: leicht unterdurchschnittlich
+- `0`: durchschnittlich
+- `+1`: leicht überdurchschnittlich
+- `+2`: überdurchschnittlich
+- `+3`: stark überdurchschnittlich
 - `X`: nicht bewertbar / keine Angabe
 
 Der Button `Weiter` wird erst aktiv, wenn die aktuelle Kompetenz bewertet wurde. Dadurch kann keine Kompetenz versehentlich übersprungen werden.

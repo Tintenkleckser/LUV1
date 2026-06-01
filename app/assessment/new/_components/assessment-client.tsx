@@ -34,6 +34,17 @@ type AssessmentPhase = 'ratings' | 'questions';
 const RATING_VALUES = [-3, -2, -1, 0, 1, 2, 3, 'X'] as const;
 type RatingValue = typeof RATING_VALUES[number];
 
+const RATING_LABELS: Record<string, string> = {
+  '-3': 'stark unterdurchschnittlich',
+  '-2': 'unterdurchschnittlich',
+  '-1': 'leicht unterdurchschnittlich',
+  '0': 'durchschnittlich',
+  '1': 'leicht überdurchschnittlich',
+  '2': 'überdurchschnittlich',
+  '3': 'stark überdurchschnittlich',
+  'X': 'keine Einschätzung möglich',
+};
+
 const RATING_COLORS: Record<string, string> = {
   '-3': 'bg-red-600 hover:bg-red-700 text-white',
   '-2': 'bg-orange-500 hover:bg-orange-600 text-white',
@@ -110,12 +121,14 @@ export function AssessmentClient() {
   const [phase, setPhase] = useState<AssessmentPhase>('ratings');
   const [existingAssessmentId, setExistingAssessmentId] = useState(assessmentId);
   const [resolvedClientId, setResolvedClientId] = useState(clientId);
+  const [clientLabel, setClientLabel] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
-      const [compRes, questRes] = await Promise.all([
+      const [compRes, questRes, clientsRes] = await Promise.all([
         fetch('/api/competencies'),
         fetch('/api/questions'),
+        clientId ? fetch('/api/clients') : Promise.resolve(null),
       ]);
       let sortedComps: Competency[] = [];
       if (compRes.ok) {
@@ -140,6 +153,13 @@ export function AssessmentClient() {
         const errData = await questRes.json().catch(() => null);
         toast.error(errData?.error ?? 'Fachfragen konnten nicht geladen werden');
       }
+      if (clientsRes?.ok) {
+        const clientsData = await clientsRes.json();
+        const client = (clientsData ?? []).find((item: any) => item?.id === clientId);
+        setClientLabel(client?.clientCode ?? clientId);
+      } else {
+        setClientLabel(clientId);
+      }
 
       // If editing an existing assessment, load its data
       if (assessmentId && sortedComps.length > 0) {
@@ -148,6 +168,7 @@ export function AssessmentClient() {
           if (aRes.ok) {
             const aData = await aRes.json();
             setResolvedClientId(aData?.clientId ?? clientId);
+            setClientLabel(aData?.client?.clientCode ?? clientId);
 
             // Restore ratings: convert name-based keys back to ID-based
             const storedRatings = aData?.ratings ?? {};
@@ -382,7 +403,7 @@ export function AssessmentClient() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Dashboard
           </Button>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground font-mono">Teilnehmende/r: {clientId}</span>
+            <span className="text-sm text-muted-foreground font-mono">Teilnehmende/r: {clientLabel || resolvedClientId || clientId}</span>
             <span className="text-xs text-muted-foreground">
               {phase === 'questions' ? 'Fachfragen' : `${ratedCount}/${totalCount} bewertet`}
             </span>
@@ -501,7 +522,7 @@ export function AssessmentClient() {
                     <span className="text-primary">🔍</span> Kurzer Check-up
                   </h3>
                   <p className="text-sm text-foreground">
-                    Bevor wir zu den <strong>Analysen</strong> übergehen, nimm dir einen Moment Zeit für das Gesamtbild. Deine Antworten sind das Fundament der Analyse.
+                    Bevor es zu den <strong>Analysen</strong> übergeht, nehmen Sie sich einen Moment Zeit für das Gesamtbild. Ihre Antworten sind das Fundament der Analyse.
                   </p>
                   <ul className="text-sm space-y-1.5 list-disc list-inside">
                     <li>
@@ -515,7 +536,7 @@ export function AssessmentClient() {
                     </li>
                   </ul>
                   <p className="text-sm font-semibold">
-                    Komm einfach zurück, wenn du bereit für den nächsten Schritt bist!
+                    Fahren Sie fort, sobald Sie bereit für den nächsten Schritt sind.
                   </p>
                 </div>
 
@@ -639,6 +660,8 @@ export function AssessmentClient() {
                             <button
                               key={key}
                               onClick={() => handleRate(val)}
+                              title={RATING_LABELS[key] ?? key}
+                              aria-label={`${key}: ${RATING_LABELS[key] ?? key}`}
                               className={`w-12 h-12 rounded-lg font-bold text-sm transition-all duration-150 ${
                                 isSelected
                                   ? RATING_SELECTED[key] ?? ''
@@ -651,9 +674,9 @@ export function AssessmentClient() {
                         })}
                       </div>
                       <div className="flex justify-between w-full max-w-md text-xs text-muted-foreground px-2">
-                        <span>stark unterentwickelt</span>
-                        <span>altersgerecht</span>
-                        <span>stark überentwickelt</span>
+                        <span>stark unterdurchschnittlich</span>
+                        <span>durchschnittlich</span>
+                        <span>stark überdurchschnittlich</span>
                       </div>
                     </div>
 

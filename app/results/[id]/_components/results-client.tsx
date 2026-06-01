@@ -120,9 +120,16 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     }
   };
 
-  const chatLabel = (chat: ChatSummary) => (
-    chat.text || chat.title || chat.lastMessage || 'Neuer Chat'
-  );
+  const chatLabel = (chat: ChatSummary) => {
+    const title = chat.title?.trim();
+    const isGenericTitle = !title
+      || title === 'Neuer Chat'
+      || title.startsWith('Kompetenzeinschätzung nach LuV');
+
+    return isGenericTitle
+      ? (chat.text || chat.lastMessage || title || 'Neuer Chat')
+      : title;
+  };
 
   const renameChat = async (chat: ChatSummary) => {
     const nextText = window.prompt('Chat umbenennen', chatLabel(chat));
@@ -132,7 +139,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
       const res = await fetch('/api/chats', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: chat.id, text: nextText.trim() }),
+        body: JSON.stringify({ id: chat.id, title: nextText.trim() }),
       });
       if (!res.ok) {
         toast.error('Chat konnte nicht umbenannt werden');
@@ -140,7 +147,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
       }
       const updated = await res.json();
       setChats((prev) => (prev ?? []).map((item) => (
-        item.id === chat.id ? { ...item, ...updated } : item
+        item.id === chat.id ? { ...item, ...updated, title: updated?.title ?? nextText.trim() } : item
       )));
     } catch (err: any) {
       console.error('Rename chat error:', err);

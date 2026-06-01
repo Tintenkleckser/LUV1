@@ -32,3 +32,5 @@ tsconfig.tsbuildinfo
 
 # Prisma
 # node_modules/.prisma/
+.vercel
+.env*.local
