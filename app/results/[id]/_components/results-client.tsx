@@ -458,7 +458,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MessageSquare className="w-4 h-4 text-primary" />
-                KI-Chat zur Auswertung
+                Assistent LuV
               </div>
               <div className="text-xs text-muted-foreground truncate">
                 Teilnehmende/r: {assessment?.client?.clientCode ?? assessment?.clientId ?? ''}
@@ -471,7 +471,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
             {(messages?.length ?? 0) === 0 && !streamingContent && (
               <div className="text-center py-16">
                 <Sparkles className="w-12 h-12 text-primary/20 mx-auto mb-4" />
-                <h3 className="text-lg font-display font-semibold mb-1">KI-Auswertung starten</h3>
+                <h3 className="text-lg font-display font-semibold mb-1">Assistent LuV starten</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
                   Wählen Sie unten einen vorbereiteten Prompt oder stellen Sie eine eigene Frage.
                 </p>

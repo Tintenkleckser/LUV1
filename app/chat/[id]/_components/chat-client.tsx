@@ -394,7 +394,7 @@ export function ChatClient({ assessmentId }: ChatClientProps) {
           {(messages?.length ?? 0) === 0 && !streamingContent && (
             <div className="text-center py-16">
               <Sparkles className="w-12 h-12 text-primary/20 mx-auto mb-4" />
-              <h3 className="text-lg font-display font-semibold mb-1">KI-Assistent</h3>
+              <h3 className="text-lg font-display font-semibold mb-1">Assistent LuV</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Stellen Sie Fragen zu den Einschätzungen, bitten Sie um Erläuterungen oder lassen Sie sich Fördermaßnahmen vorschlagen.
               </p>
