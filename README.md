@@ -1,4 +1,4 @@
-# Kompetenzeinschätzung nach LuV
+# Assistent LuV
 
 KI-gestützte Kompetenzeinschätzung für Berater:innen in der beruflichen Rehabilitation.
 
