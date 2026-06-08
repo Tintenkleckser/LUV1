@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ClipboardCheck, Plus, Users, LogOut, History, PlayCircle,
-  Search, Hash, Loader2, ChevronRight, Calendar, Pencil, HelpCircle
+  Search, Hash, Loader2, ChevronRight, Calendar, Pencil, HelpCircle, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -50,8 +50,10 @@ export function DashboardClient() {
   const [creating, setCreating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientAssessments, setClientAssessments] = useState<Assessment[]>([]);
   const [loadingAssessments, setLoadingAssessments] = useState(false);
+  const [deletingClient, setDeletingClient] = useState(false);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -126,6 +128,38 @@ export function DashboardClient() {
       console.error('Fetch client assessments:', err);
     } finally {
       setLoadingAssessments(false);
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!clientToDelete?.id) return;
+
+    setDeletingClient(true);
+    try {
+      const res = await fetch(`/api/clients?id=${encodeURIComponent(clientToDelete.id)}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? 'Teilnehmende/r konnte nicht gelöscht werden');
+        return;
+      }
+
+      toast.success('Teilnehmende/r wurde vollständig gelöscht');
+      setClients((prev) => (prev ?? []).filter((client) => client.id !== clientToDelete.id));
+      setAssessments((prev) => (prev ?? []).filter((assessment) => assessment.clientId !== clientToDelete.id));
+      setClientAssessments([]);
+      if (selectedClient?.id === clientToDelete.id) {
+        setSelectedClient(null);
+      }
+      setClientToDelete(null);
+      await Promise.all([fetchClients(), fetchAllAssessments()]);
+    } catch (err: any) {
+      console.error('Delete client error:', err);
+      toast.error('Teilnehmende/r konnte nicht gelöscht werden');
+    } finally {
+      setDeletingClient(false);
     }
   };
 
@@ -275,7 +309,7 @@ export function DashboardClient() {
                   onClick={() => handleSelectClient(client)}
                 >
                   <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                           <Hash className="w-5 h-5 text-primary" />
@@ -288,7 +322,23 @@ export function DashboardClient() {
                           </p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Teilnehmende/n löschen"
+                          aria-label="Teilnehmende/n löschen"
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            setClientToDelete(client);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -363,6 +413,16 @@ export function DashboardClient() {
             >
               <PlayCircle className="w-4 h-4 mr-2" /> Neue Einschätzung starten
             </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                setClientToDelete(selectedClient);
+                setSelectedClient(null);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" /> Teilnehmende/n löschen
+            </Button>
 
             <div className="space-y-2">
               <h4 className="text-sm font-semibold flex items-center gap-2">
@@ -430,6 +490,41 @@ export function DashboardClient() {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!clientToDelete}
+        onOpenChange={(open: boolean) => !open && !deletingClient && setClientToDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Teilnehmende/n löschen?</DialogTitle>
+            <DialogDescription>
+              Dadurch werden die Teilnehmenden-ID, alle zugehörigen Einschätzungen, Chatverläufe und
+              Nachrichten vollständig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm">
+            <span className="font-medium">Teilnehmende/r:</span>{' '}
+            <span className="font-mono">{clientToDelete?.clientCode ?? ''}</span>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setClientToDelete(null)}
+              disabled={deletingClient}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteClient}
+              loading={deletingClient}
+            >
+              <Trash2 className="w-4 h-4 mr-1" /> Endgültig löschen
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import {
   createClientViaSupabase,
+  deleteClientCompletelyViaSupabase,
   findClientViaSupabase,
   isPrismaConnectionError,
   listClientsViaSupabase,
@@ -82,6 +83,75 @@ export async function POST(request: NextRequest) {
     if (err?.code === 'P2003') {
       return NextResponse.json({ error: 'Der angemeldete Benutzer wurde in der Datenbank nicht gefunden' }, { status: 400 });
     }
+    return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
+    }
+    const userId = (session.user as any)?.id ?? '';
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id') ?? '';
+
+    if (!id) {
+      return NextResponse.json({ error: 'id erforderlich' }, { status: 400 });
+    }
+
+    try {
+      const client = await prisma.client.findFirst({
+        where: { id, userId },
+        select: { id: true },
+      });
+      if (!client) {
+        return NextResponse.json({ error: 'Teilnehmende/r nicht gefunden' }, { status: 404 });
+      }
+
+      const assessments = await prisma.assessment.findMany({
+        where: { clientId: id, userId },
+        select: { id: true },
+      });
+      const assessmentIds = assessments.map((assessment) => assessment.id);
+
+      const chats = await prisma.chat.findMany({
+        where: {
+          userId,
+          OR: [
+            { clientId: id },
+            ...(assessmentIds.length > 0 ? [{ assessmentId: { in: assessmentIds } }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      const chatIds = chats.map((chat) => chat.id);
+
+      await prisma.$transaction([
+        ...(chatIds.length > 0
+          ? [
+              prisma.message.deleteMany({ where: { chatId: { in: chatIds } } }),
+              prisma.chat.deleteMany({ where: { id: { in: chatIds }, userId } }),
+            ]
+          : []),
+        ...(assessmentIds.length > 0
+          ? [prisma.assessment.deleteMany({ where: { id: { in: assessmentIds }, userId } })]
+          : []),
+        prisma.client.delete({ where: { id } }),
+      ]);
+
+      return NextResponse.json({ ok: true });
+    } catch (err: any) {
+      if (!isPrismaConnectionError(err)) throw err;
+      const deleted = await deleteClientCompletelyViaSupabase(userId, id);
+      if (!deleted) {
+        return NextResponse.json({ error: 'Teilnehmende/r nicht gefunden' }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+  } catch (err: any) {
+    console.error('Clients DELETE error:', err);
     return NextResponse.json({ error: err?.message ?? 'Interner Fehler' }, { status: 500 });
   }
 }

@@ -129,6 +129,89 @@ export async function createClientViaSupabase(userId: string, clientCode: string
   return data;
 }
 
+export async function findClientByIdViaSupabase(userId: string, clientId: string) {
+  const { data, error } = await supabase
+    .from('Client')
+    .select('*')
+    .eq('id', clientId)
+    .eq('userId', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteClientCompletelyViaSupabase(userId: string, clientId: string) {
+  const client = await findClientByIdViaSupabase(userId, clientId);
+  if (!client) return false;
+
+  const { data: assessments, error: assessmentListError } = await supabase
+    .from('Assessment')
+    .select('id')
+    .eq('clientId', clientId)
+    .eq('userId', userId);
+  if (assessmentListError) throw assessmentListError;
+
+  const assessmentIds = (assessments ?? []).map((item: any) => item.id).filter(Boolean);
+
+  const { data: directChats, error: directChatListError } = await supabase
+    .from('Chat')
+    .select('id')
+    .eq('userId', userId)
+    .eq('clientId', clientId);
+  if (directChatListError) throw directChatListError;
+
+  let assessmentChats: any[] = [];
+  if (assessmentIds.length > 0) {
+    const { data, error } = await supabase
+      .from('Chat')
+      .select('id')
+      .eq('userId', userId)
+      .in('assessmentId', assessmentIds);
+    if (error) throw error;
+    assessmentChats = data ?? [];
+  }
+
+  const chatIds = Array.from(
+    new Set(
+      [...(directChats ?? []), ...assessmentChats]
+        .map((item: any) => item.id)
+        .filter(Boolean)
+    )
+  );
+  if (chatIds.length > 0) {
+    const { error: messagesError } = await supabase
+      .from('Message')
+      .delete()
+      .in('chatId', chatIds);
+    if (messagesError) throw messagesError;
+
+    const { error: chatsError } = await supabase
+      .from('Chat')
+      .delete()
+      .in('id', chatIds)
+      .eq('userId', userId);
+    if (chatsError) throw chatsError;
+  }
+
+  if (assessmentIds.length > 0) {
+    const { error: assessmentsError } = await supabase
+      .from('Assessment')
+      .delete()
+      .in('id', assessmentIds)
+      .eq('userId', userId);
+    if (assessmentsError) throw assessmentsError;
+  }
+
+  const { error: clientError } = await supabase
+    .from('Client')
+    .delete()
+    .eq('id', clientId)
+    .eq('userId', userId);
+  if (clientError) throw clientError;
+
+  return true;
+}
+
 export async function listAssessmentsViaSupabase(userId: string, clientId?: string | null) {
   let query = supabase
     .from('Assessment')

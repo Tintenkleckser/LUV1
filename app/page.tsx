@@ -95,7 +95,7 @@ export default function AuthPage() {
             Assistent LuV
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            KI-gestützte Kompetenzanalyse für Berater:innen
+            KI-gestützte Kompetenzanalyse
           </p>
         </div>
 
