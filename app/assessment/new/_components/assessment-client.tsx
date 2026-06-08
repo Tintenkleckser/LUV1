@@ -651,9 +651,9 @@ export function AssessmentClient() {
                         })}
                       </div>
                       <div className="flex justify-between w-full max-w-md text-xs text-muted-foreground px-2">
-                        <span>stark unterentwickelt</span>
-                        <span>altersgerecht</span>
-                        <span>stark überentwickelt</span>
+                        <span>stark unterdurchschnittlich</span>
+                        <span>durchschnittlich</span>
+                        <span>stark überdurchschnittlich</span>
                       </div>
                     </div>
 
