@@ -11,7 +11,9 @@ import {
   isPrismaRecoverableDbError,
   listMessagesViaSupabase,
   updateChatPreviewViaSupabase,
+  updateChatTitleViaSupabase,
 } from '@/lib/app-db-fallback';
+import { chatTitleFromContent, isDefaultChatTitle } from '@/lib/chat-title';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     try {
       const chat = await prisma.chat.findFirst({
         where: { id: chatId, userId },
-        select: { id: true },
+        select: { id: true, title: true },
       });
       if (!chat) {
         return NextResponse.json({ error: 'Chat nicht gefunden' }, { status: 404 });
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
     try {
       const chat = await prisma.chat.findFirst({
         where: { id: chatId, userId },
-        select: { id: true },
+        select: { id: true, title: true },
       });
       if (!chat) {
         return NextResponse.json({ error: 'Chat nicht gefunden' }, { status: 404 });
@@ -86,9 +88,14 @@ export async function POST(request: NextRequest) {
         },
       });
       if (chatId && content) {
+        const title = role === 'user' && isDefaultChatTitle(chat.title)
+          ? chatTitleFromContent(content)
+          : undefined;
         await prisma.chat.update({
           where: { id: chatId },
-          data: role === 'user' ? { lastMessage: text, text } : { lastMessage: text },
+          data: role === 'user'
+            ? { lastMessage: text, text, ...(title ? { title } : {}) }
+            : { lastMessage: text },
         });
       }
       return NextResponse.json(message, { status: 201 });
@@ -102,6 +109,9 @@ export async function POST(request: NextRequest) {
       const message = await createMessageViaSupabase(chatId, role, content);
       if (chatId && content) {
         await updateChatPreviewViaSupabase(chatId, text, role === 'user');
+        if (role === 'user' && isDefaultChatTitle(chat.title)) {
+          await updateChatTitleViaSupabase(chatId, userId, chatTitleFromContent(content));
+        }
       }
       return NextResponse.json(message, { status: 201 });
     }

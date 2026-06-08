@@ -14,7 +14,9 @@ import {
   isPrismaConnectionError,
   isPrismaRecoverableDbError,
   updateChatPreviewViaSupabase,
+  updateChatTitleViaSupabase,
 } from '@/lib/app-db-fallback';
+import { chatTitleFromContent, isDefaultChatTitle } from '@/lib/chat-title';
 
 function insufficientDataMessage(ratedCount: number, totalCount: number, answeredQuestions: number) {
   const percent = totalCount > 0 ? Math.round((ratedCount / totalCount) * 100) : 0;
@@ -59,14 +61,19 @@ export async function POST(request: NextRequest) {
     const saveMessageAndPreview = async (role: string, content: string, prefix?: string) => {
       if (!chat_id || !content) return;
       const text = chatPreviewText(content, prefix);
-      const chatData = role === 'user' ? { lastMessage: text, text } : { lastMessage: text };
 
       try {
         const chat = await prisma.chat.findFirst({
           where: { id: chat_id, userId },
-          select: { id: true },
+          select: { id: true, title: true },
         });
         if (!chat) return;
+        const title = role === 'user' && isDefaultChatTitle(chat.title)
+          ? chatTitleFromContent(content)
+          : undefined;
+        const chatData = role === 'user'
+          ? { lastMessage: text, text, ...(title ? { title } : {}) }
+          : { lastMessage: text };
 
         await prisma.$transaction([
           prisma.message.create({
@@ -83,6 +90,9 @@ export async function POST(request: NextRequest) {
         if (!chat) return;
         await createMessageViaSupabase(chat_id, role, content);
         await updateChatPreviewViaSupabase(chat_id, text, role === 'user');
+        if (role === 'user' && isDefaultChatTitle(chat.title)) {
+          await updateChatTitleViaSupabase(chat_id, userId, chatTitleFromContent(content));
+        }
       }
     };
 

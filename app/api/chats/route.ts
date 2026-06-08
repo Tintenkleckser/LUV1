@@ -10,8 +10,9 @@ import {
   isPrismaRecoverableDbError,
   listChatsViaSupabase,
   normalizeChatRow,
-  updateChatTextViaSupabase,
+  updateChatTitleViaSupabase,
 } from '@/lib/app-db-fallback';
+import { chatTitleFromContent, isDefaultChatTitle } from '@/lib/chat-title';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,8 +31,28 @@ export async function GET(request: NextRequest) {
       const chats = await prisma.chat.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        include: {
+          messages: {
+            where: { role: 'user' },
+            orderBy: { createdAt: 'asc' },
+            take: 1,
+            select: { content: true },
+          },
+        },
       });
-      return NextResponse.json((chats ?? []).map(normalizeChatRow));
+      const normalizedChats = await Promise.all((chats ?? []).map(async (chat) => {
+        const firstUserContent = chat.messages?.[0]?.content ?? '';
+        if (isDefaultChatTitle(chat.title) && firstUserContent) {
+          const title = chatTitleFromContent(firstUserContent);
+          await prisma.chat.update({
+            where: { id: chat.id },
+            data: { title },
+          });
+          return normalizeChatRow({ ...chat, title }, firstUserContent);
+        }
+        return normalizeChatRow(chat, firstUserContent);
+      }));
+      return NextResponse.json(normalizedChats);
     } catch (error: any) {
       if (!isPrismaRecoverableDbError(error)) throw error;
       const chats = await listChatsViaSupabase(userId, assessmentId);
@@ -59,7 +80,7 @@ export async function POST(request: NextRequest) {
           clientId: body?.client_id ?? null,
           userId,
           title: body?.title ?? 'Neuer Chat',
-          text: body?.text ?? body?.title ?? 'Neuer Chat',
+          text: body?.text ?? null,
         },
       });
       return NextResponse.json(normalizeChatRow(chat), { status: 201 });
@@ -83,9 +104,9 @@ export async function PATCH(request: NextRequest) {
     const userId = (session.user as any)?.id ?? '';
     const body = await request.json();
     const id = body?.id ?? '';
-    const text = String(body?.text ?? '').trim();
-    if (!id || !text) {
-      return NextResponse.json({ error: 'id und text erforderlich' }, { status: 400 });
+    const title = String(body?.title ?? body?.text ?? '').trim();
+    if (!id || !title) {
+      return NextResponse.json({ error: 'id und title erforderlich' }, { status: 400 });
     }
 
     try {
@@ -99,12 +120,12 @@ export async function PATCH(request: NextRequest) {
 
       const chat = await prisma.chat.update({
         where: { id },
-        data: { text, title: text },
+        data: { title },
       });
       return NextResponse.json(normalizeChatRow(chat));
     } catch (error: any) {
       if (!isPrismaRecoverableDbError(error)) throw error;
-      const chat = await updateChatTextViaSupabase(id, userId, text);
+      const chat = await updateChatTitleViaSupabase(id, userId, title);
       if (!chat) {
         return NextResponse.json({ error: 'Chat nicht gefunden' }, { status: 404 });
       }

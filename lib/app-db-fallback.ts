@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { chatTitleFromContent, isDefaultChatTitle } from '@/lib/chat-title';
 
 export function isPrismaConnectionError(error: any) {
   const message = String(error?.message ?? '');
@@ -290,10 +291,15 @@ export function chatPreviewText(content: string, prefix?: string) {
   return prefix ? `${prefix}: ${preview}` : preview;
 }
 
-export function normalizeChatRow(chat: any) {
+export function normalizeChatRow(chat: any, firstUserContent?: string | null) {
+  const { messages: _messages, ...chatWithoutMessages } = chat ?? {};
   const text = chat?.text ?? chat?.Text ?? chat?.lastMessage ?? chat?.last_message ?? null;
+  const title = isDefaultChatTitle(chat?.title) && firstUserContent
+    ? chatTitleFromContent(firstUserContent)
+    : chat?.title ?? 'Neuer Chat';
   return {
-    ...chat,
+    ...chatWithoutMessages,
+    title,
     text,
     lastMessage: chat?.lastMessage ?? chat?.last_message ?? text,
     createdAt: chat?.createdAt ?? chat?.created_at,
@@ -319,7 +325,32 @@ export async function listChatsViaSupabase(userId: string, assessmentId?: string
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map(normalizeChatRow);
+
+  return Promise.all((data ?? []).map(async (chat: any) => {
+    if (!isDefaultChatTitle(chat?.title)) return normalizeChatRow(chat);
+
+    const { data: firstUserMessage, error: messageError } = await supabase
+      .from('Message')
+      .select('content')
+      .eq('chatId', chat.id)
+      .eq('role', 'user')
+      .order('createdAt', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (messageError) throw messageError;
+
+    const content = firstUserMessage?.content ?? '';
+    if (!content) return normalizeChatRow(chat);
+
+    const title = chatTitleFromContent(content);
+    const { error: updateError } = await supabase
+      .from('Chat')
+      .update({ title })
+      .eq('id', chat.id)
+      .eq('userId', userId);
+    if (updateError) throw updateError;
+    return normalizeChatRow({ ...chat, title }, content);
+  }));
 }
 
 export async function createChatViaSupabase(userId: string, body: any) {
@@ -329,7 +360,7 @@ export async function createChatViaSupabase(userId: string, body: any) {
     clientId: body?.client_id ?? null,
     userId,
     title: body?.title ?? 'Neuer Chat',
-    text: body?.text ?? body?.title ?? 'Neuer Chat',
+    text: body?.text ?? null,
     createdAt: new Date().toISOString(),
   };
 
@@ -420,35 +451,19 @@ export async function updateChatPreviewViaSupabase(chatId: string, text: string,
   return normalizeChatRow(result.data);
 }
 
-export async function updateChatTextViaSupabase(chatId: string, userId: string, text: string) {
+export async function updateChatTitleViaSupabase(chatId: string, userId: string, title: string) {
   const chat = await findChatForUserViaSupabase(chatId, userId);
   if (!chat) return null;
 
-  let result = await supabase
+  const { data, error } = await supabase
     .from('Chat')
-    .update({
-      text,
-      title: text,
-      last_message: text,
-    })
+    .update({ title })
     .eq('id', chatId)
+    .eq('userId', userId)
     .select('*')
     .single();
-
-  if (result.error && isMissingTextColumn(result.error)) {
-    result = await supabase
-      .from('Chat')
-      .update({
-        title: text,
-        last_message: text,
-      })
-      .eq('id', chatId)
-      .select('*')
-      .single();
-  }
-
-  if (result.error) throw result.error;
-  return normalizeChatRow(result.data);
+  if (error) throw error;
+  return normalizeChatRow(data);
 }
 
 export async function deleteChatViaSupabase(chatId: string, userId: string) {

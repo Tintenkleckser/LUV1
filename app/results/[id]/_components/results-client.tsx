@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { ExportButtons } from '@/components/export-buttons';
+import { chatTitleFromContent, isDefaultChatTitle } from '@/lib/chat-title';
 
 interface ResultsClientProps {
   assessmentId: string;
@@ -103,8 +104,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assessment_id: assessmentId,
-          title: 'Kompetenzeinschätzung nach LuV - Chat',
-          text: 'Neuer Chat',
+          title: 'Neuer Chat',
         }),
       });
       if (res.ok) {
@@ -121,7 +121,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
   };
 
   const chatLabel = (chat: ChatSummary) => (
-    chat.text || chat.title || chat.lastMessage || 'Neuer Chat'
+    chat.title || chat.text || chat.lastMessage || 'Neuer Chat'
   );
 
   const renameChat = async (chat: ChatSummary) => {
@@ -132,7 +132,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
       const res = await fetch('/api/chats', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: chat.id, text: nextText.trim() }),
+        body: JSON.stringify({ id: chat.id, title: nextText.trim() }),
       });
       if (!res.ok) {
         toast.error('Chat konnte nicht umbenannt werden');
@@ -196,7 +196,7 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assessment_id: assessmentId,
-          title: 'Kompetenzeinschätzung nach LuV - Chat',
+          title: 'Neuer Chat',
         }),
       });
       if (res.ok) {
@@ -248,7 +248,14 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     const newUserMsg: Message = { role: 'user', content: userMsg };
     setMessages((prev) => [...(prev ?? []), newUserMsg]);
     setChats((prev) => (prev ?? []).map((chat) => (
-      chat.id === chatId ? { ...chat, text: userMsg, lastMessage: userMsg } : chat
+      chat.id === chatId
+        ? {
+            ...chat,
+            title: isDefaultChatTitle(chat.title) ? chatTitleFromContent(userMsg) : chat.title,
+            text: userMsg,
+            lastMessage: userMsg,
+          }
+        : chat
     )));
 
     try {
