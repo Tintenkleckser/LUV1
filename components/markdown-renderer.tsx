@@ -44,13 +44,18 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             <h3 className="text-base font-semibold mt-3 mb-1" {...props}>{children}</h3>
           ),
           ul: ({ children, ...props }) => (
-            <ul className="list-disc list-inside space-y-1 my-2" {...props}>{children}</ul>
+            <ul className="list-disc list-outside space-y-3 my-3 pl-5" {...props}>{children}</ul>
           ),
           ol: ({ children, ...props }) => (
-            <ol className="list-decimal list-inside space-y-1 my-2" {...props}>{children}</ol>
+            <ol className="list-decimal list-outside space-y-3 my-3 pl-5" {...props}>{children}</ol>
           ),
           li: ({ children, ...props }) => (
-            <li className="text-sm" {...props}>{children}</li>
+            <li
+              className="text-sm pl-1 leading-relaxed [&>p]:mb-0 [&>p>strong:first-child]:block [&>p>strong:first-child]:mb-1"
+              {...props}
+            >
+              {children}
+            </li>
           ),
           p: ({ children, ...props }) => (
             <p className="text-sm mb-2 leading-relaxed" {...props}>{children}</p>
