@@ -92,7 +92,7 @@ export default function AuthPage() {
             <img src="/logo.png" alt="Kompetenzeinschätzung Logo" className="w-12 h-12 object-contain" />
           </div>
           <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">
-            Kompetenzeinschätzung nach LuV
+            Assistent LuV
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
             KI-gestützte Kompetenzanalyse für Berater:innen
