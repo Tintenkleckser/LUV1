@@ -348,63 +348,49 @@ export function ResultsClient({ assessmentId }: ResultsClientProps) {
     {
       label: 'Stärken-Schwächen',
       icon: Target,
-      prompt: `Du bist Experte für Kompetenzdiagnostik und pädagogische bzw. psychologische Auswertung von Einschätzungsdaten.
-Du erhältst:
-Eine Tabelle mit Kompetenzkategorien, Merkmalen, Definitionen, Indikatoren und Skalenstufen (-3 bis +3).
-Die Einschätzungsergebnisse einer Person zu den einzelnen Merkmalen auf dieser Skala.
-Deine Aufgabe ist es, aus den Ergebnissen ein prägnantes Stärken-Schwächen-Profil der Person zu erstellen.
-Arbeite dabei nach folgenden Regeln:
-Interpretiere die Skala wie folgt:
-+3 = deutlich ausgeprägte Stärke
-+2 = Stärke
-+1 = eher Stärke
-0 = durchschnittliche Ausprägung
--1 = eher Entwicklungsbereich
--2 = Entwicklungsbereich
--3 = deutlicher Entwicklungsbedarf
+      prompt: `Erstelle aus den Einschätzungsergebnisse einer Person zu den einzelnen Merkmalen ein prägnantes Stärken-Schwächen-Profil der Person.
+Interpretiere die Einschätzungsergebnisse wie folgt:
++3 = deutlich ausgeprägte Stärke (herausragend)
++2 = Stärke (sehr gut)
++1 = eher Stärke (gut)
+0 = durchschnittliche Ausprägung (durchschnittlich)
+-1 = eher schwach ausgeprägt (unterdurchschnittlich)
+-2 = Schwäche  (gering)
+-3 = deutliche Schwäche (sehr gering)
 
 Identifiziere:
 die wichtigsten Stärken der Person (Stärken)
-durchschnittliche Ausprägungen
-die wichtigsten Entwicklungsfelder (Schwächen)
+die durchschnittlichen Ausprägungen
+die Schwächen
 mögliche Muster innerhalb der Kompetenzbereiche
 
 Nutze dabei die in der Tabelle enthaltenen Definitionen und Indikatoren der Merkmale, um die Ergebnisse verständlich zu interpretieren.
-Formuliere das Profil sachlich, wertschätzend und diagnostisch fundiert.
 Struktur der Ausgabe:
-Kurzbeschreibung des Gesamtprofils (3–4 Sätze)
-Zentrale Stärken (Aufzählung mit kurzer Erläuterung)
-Entwicklungsfelder (Aufzählung mit kurzer Erläuterung)
-Auffällige Muster oder Zusammenhänge zwischen Kompetenzen (optional)
+1) Kurzbeschreibung des Gesamtprofils (3–4 Sätze).
+2) Stärken (Aufzählung mit kurzer Erläuterung)
+3) Durchschnittlicher Bereich (Aufzählung mit kurzer Erläuterung)
+4) Schwächen (Aufzählung mit kurzer Erläuterung)
 
-Wichtig:
-Nutze ausschließlich die vorliegenden Daten.
-Erfinde keine zusätzlichen Informationen.
-Formuliere präzise und verständlich.`,
+Wichtig: Nutze ausschließlich die vorliegenden Daten. Erfinde keine zusätzlichen Informationen. Formuliere präzise und verständlich.`,
     },
     {
       label: 'Verbalisierung',
       icon: Table2,
-      prompt: `Du bist Experte für Kompetenzdiagnostik und die verständliche Aufbereitung diagnostischer Ergebnisse.
-Du erhältst:
-In der Tabelle Kompetenzkategorien mit mehreren zugeordneten Merkmalen.
-Zu jedem Merkmal eine Definition und Indikatoren.
-Die Einschätzungswerte einer Person auf einer Skala von -3 bis +3.
-
-Deine Aufgabe ist es, die Ergebnisse innerhalb der jeweiligen Kompetenzkategorien in wenigen prägnanten Sätzen zusammenzufassen.
+      prompt: `Erstelle aus den Einschätzungsergebnisse einer Person zu den einzelnen Merkmalen innerhalb der jeweiligen Kompetenzkategorien in wenigen prägnanten Sätzen Zusammenzufassungen.
 Vorgehen:
-Analysiere die Werte der einzelnen Merkmale.
-Nutze die Definitionen und Indikatoren, um die Ergebnisse inhaltlich zu interpretieren.
-Formuliere eine kurze verbale Zusammenfassung der Kompetenzen der Person im Bereich der jeweiligen Kategorie.
+1) Analysiere die Werte der einzelnen Merkmale.
+2) Nutze die in der Tabelle bereitgestellten Definitionen und Indikatoren, um die Ergebnisse inhaltlich zu interpretieren.
+3) Formuliere eine kurze verbale Zusammenfassung der Kompetenzen der Person im Bereich der jeweiligen Kategorie: Personale Kompetenzen, Sozial-kommunikative Kompetenz, Methodenkompetenz, Schulische Basiskompetenz.
+4) Fasse die Angaben zu den Leitfragen (Text) in einer eigenen Kategorie „FACHLICHE BASISKOMPETENZEN / ERGEBNISSE DER ERPROBUNG IN BERUFSFELDERN“ zusammen.
 
-Interpretation der Skala:
-+3 = stark ausgeprägt
-+2 = ausgeprägt
-+1 = eher vorhanden
+Interpretation der Einschätzungsergebnisse:
++3 = stark überdurchschnittlich
++2 = deutlich überdurchschnittlich
++1 = leicht überdurchschnittlich
 0 = durchschnittlich
--1 = eher schwach ausgeprägt
--2 = schwach ausgeprägt
--3 = deutlich schwach ausgeprägt
+-1 = leicht unterdurchschnittlich
+-2 = deutlich unterdurchschnittlich
+-3 = stark unterdurchschnittlich
 
 Anforderungen an die Zusammenfassung:
 3–5 Sätze
@@ -420,24 +406,21 @@ Nutze die Beschreibungen der Merkmale als Grundlage für die Formulierung.`,
     {
       label: 'Förderansätze',
       icon: Lightbulb,
-      prompt: `Du bist Experte für Kompetenzentwicklung, Diagnostik und Förderplanung im Bereich der beruflichen Rehabilitation von Jugendlichen und jungen Erwachsenen.
-Du erhältst:
-Die Einschätzungsergebnisse einer Person zu mehreren Kompetenzmerkmalen (Skala -3 bis +3).
-Die Beschreibung der Kompetenzkategorien, zugehörigen Merkmale, Definitionen und Indikatoren.
-Deine Aufgabe ist es, auf Grundlage der Ergebnisse geeignete Förderansätze für diese Person vorzuschlagen.
+      prompt: `Deine Aufgabe ist es, auf Grundlage der Einschätzungsergebnisse der Person zu mehreren Kompetenzmerkmalen geeignete Förderansätze für diese Person vorzuschlagen.
 Arbeite dabei nach folgenden Prinzipien:
-Konzentriere dich vor allem auf Merkmale mit Werten von -1, -2 oder -3 (Entwicklungsbereiche).
-Berücksichtige vorhandene Stärken (+2 / +3), die für die Förderung genutzt werden können.
-Leite konkrete und realistische Förderansätze aus den Kompetenzbeschreibungen und Indikatoren ab.
+1) Mache Vorschläge für alle Merkmale mit Werten von -1, -2 oder -3 (Entwicklungsbereiche). Konzentriere dich insbesondere auf die Merkmale mit den Werten -2 oder -3
+2) Berücksichtige vorhandene Stärken (+2 / +3), die für die Förderung genutzt werden können.
+3) Leite konkrete und realistische Förderansätze aus den Kompetenzbeschreibungen und Indikatoren ab.
 Struktur der Ausgabe:
-Kurze Einordnung der wichtigsten Entwicklungsbereiche (2–3 Sätze)
-Förderansätze nach Kompetenzbereichen:
-Kompetenzbereich: [Name]
+1) Kurze Einordnung der wichtigsten Entwicklungsbereiche (2–3 Sätze)
+2) Förderansätze nach Kompetenzbereichen:
+Kompetenzbereich: [Name], Merkmal: [Name]
 Entwicklungsziel: kurze Beschreibung der zu entwickelnden Kompetenz
 Förderansatz 1: konkrete Maßnahme oder Lernstrategie
 Förderansatz 2: konkrete Maßnahme oder Lernstrategie
 Förderansatz 3: konkrete Maßnahme oder Lernstrategie
-Optional: Hinweise zur Nutzung vorhandener Stärken zur Unterstützung der Entwicklung.
+3) Optional: Hinweise zur Nutzung vorhandener Stärken zur Unterstützung der Entwicklung.
+
 Wichtig:
 Formuliere praxisnahe und umsetzbare Förderideen.
 Bleibe innerhalb der Informationen aus der Kompetenzbeschreibung.
