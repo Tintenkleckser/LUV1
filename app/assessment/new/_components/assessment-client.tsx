@@ -110,6 +110,7 @@ export function AssessmentClient() {
   const [phase, setPhase] = useState<AssessmentPhase>('ratings');
   const [existingAssessmentId, setExistingAssessmentId] = useState(assessmentId);
   const [resolvedClientId, setResolvedClientId] = useState(clientId);
+  const [clientLabel, setClientLabel] = useState(clientId);
 
   const fetchData = useCallback(async () => {
     try {
@@ -148,6 +149,7 @@ export function AssessmentClient() {
           if (aRes.ok) {
             const aData = await aRes.json();
             setResolvedClientId(aData?.clientId ?? clientId);
+            setClientLabel(aData?.client?.clientCode ?? clientId);
 
             // Restore ratings: convert name-based keys back to ID-based
             const storedRatings = aData?.ratings ?? {};
@@ -382,7 +384,9 @@ export function AssessmentClient() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Dashboard
           </Button>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground font-mono">Teilnehmende/r: {clientId}</span>
+            <span className="text-sm text-muted-foreground font-mono">
+              Teilnehmende/r: {clientLabel || resolvedClientId || clientId}
+            </span>
             <span className="text-xs text-muted-foreground">
               {phase === 'questions' ? 'Fachfragen' : `${ratedCount}/${totalCount} bewertet`}
             </span>
