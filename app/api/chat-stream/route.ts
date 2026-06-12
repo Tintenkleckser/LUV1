@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -15,6 +15,9 @@ import {
   isPrismaRecoverableDbError,
   updateChatPreviewViaSupabase,
 } from '@/lib/app-db-fallback';
+import { countRatings, hasSufficientAssessmentData, sanitizeGeneratedChunk, sanitizeGeneratedText } from '@/lib/release-fixes';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function insufficientDataMessage(ratedCount: number, totalCount: number, answeredQuestions: number) {
   const percent = totalCount > 0 ? Math.round((ratedCount / totalCount) * 100) : 0;
@@ -100,20 +103,32 @@ export async function POST(request: NextRequest) {
     let ratedCount = 0;
     let totalCount = 0;
     let answeredQuestionCount = 0;
+    let assessmentLoaded = false;
     if (assessment_id) {
       try {
         let assessment: any = null;
-        try {
-          assessment = await prisma.assessment.findUnique({
-            where: { id: assessment_id },
-          });
-        } catch (error: any) {
-          if (!isPrismaConnectionError(error)) throw error;
-          assessment = await findAssessmentViaSupabase(assessment_id);
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            assessment = await prisma.assessment.findUnique({
+              where: { id: assessment_id },
+            });
+          } catch (error: any) {
+            if (!isPrismaConnectionError(error)) throw error;
+            assessment = await findAssessmentViaSupabase(assessment_id);
+          }
+
+          if (assessment && countRatings(assessment?.ratings) > 0) {
+            break;
+          }
+
+          if (attempt < 2) {
+            await sleep(400);
+          }
         }
         if (assessment) {
+          assessmentLoaded = true;
           const ratingsObj = assessment?.ratings as Record<string, any> ?? {};
-          ratedCount = Object.keys(ratingsObj).length;
+          ratedCount = countRatings(ratingsObj);
           const ratingsStr = Object.entries(ratingsObj)
             ?.map(([k, v]: [string, any]) => `${k}: ${v}`)
             ?.join(', ') ?? '';
@@ -157,7 +172,7 @@ export async function POST(request: NextRequest) {
       console.error('Fetch competency count error:', e);
     }
 
-    if (assessment_id && (totalCount === 0 || ratedCount / totalCount < 0.8 || answeredQuestionCount < 4)) {
+    if (assessment_id && assessmentLoaded && !hasSufficientAssessmentData({ ratedCount, totalCount, answeredQuestionCount })) {
       const content = insufficientDataMessage(ratedCount, totalCount, answeredQuestionCount);
       try {
         await saveMessageAndPreview('assistant', content);
@@ -263,6 +278,7 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
         const finalize = async () => {
           if (finalized) return;
           finalized = true;
+          buffer = sanitizeGeneratedText(buffer);
           if (chat_id && buffer) {
             try {
               await saveMessageAndPreview('assistant', buffer);
@@ -292,8 +308,9 @@ Antworte immer auf Deutsch. Sei präzise und hilfreich.`;
                   const parsed = JSON.parse(data);
                   const content = parsed?.choices?.[0]?.delta?.content ?? '';
                   if (content) {
-                    buffer += content;
-                    const chunkData = JSON.stringify({ status: 'streaming', content });
+                    const sanitizedContent = sanitizeGeneratedChunk(content);
+                    buffer += sanitizedContent;
+                    const chunkData = JSON.stringify({ status: 'streaming', content: sanitizedContent });
                     controller.enqueue(encoder.encode(`data: ${chunkData}\n\n`));
                   }
                 } catch (e) {

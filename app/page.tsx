@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { ClipboardCheck, LogIn, UserPlus, Mail, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { MIN_PASSWORD_LENGTH } from '@/lib/release-fixes';
 
 export default function AuthPage() {
   const { data: session, status } = useSession() || {};
@@ -42,6 +43,11 @@ export default function AuthPage() {
           router.replace('/dashboard');
         }
       } else {
+        if (password.length < MIN_PASSWORD_LENGTH) {
+          toast.error(`Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein.`);
+          return;
+        }
+
         const res = await fetch('/api/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -114,7 +120,7 @@ export default function AuthPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -153,6 +159,7 @@ export default function AuthPage() {
                     value={password}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     required
+                    minLength={isLogin ? undefined : MIN_PASSWORD_LENGTH}
                     className="pl-10"
                   />
                 </div>

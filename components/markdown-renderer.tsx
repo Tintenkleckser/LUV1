@@ -2,6 +2,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { sanitizeGeneratedText } from '@/lib/release-fixes';
 
 interface MarkdownRendererProps {
   content: string;
@@ -9,6 +10,8 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
+  const sanitizedContent = sanitizeGeneratedText(content);
+
   return (
     <div className={`prose prose-sm max-w-none dark:prose-invert ${className}`}>
       <ReactMarkdown
@@ -80,7 +83,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
           },
         }}
       >
-        {content}
+        {sanitizedContent}
       </ReactMarkdown>
     </div>
   );

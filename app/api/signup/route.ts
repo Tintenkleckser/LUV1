@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { createUserViaSupabase, findUserByEmailViaSupabase, isPrismaConnectionError } from '@/lib/app-db-fallback';
+import { normalizeOptionalName, validatePassword } from '@/lib/release-fixes';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,13 @@ export async function POST(request: NextRequest) {
     if (!normalizedEmail || !password) {
       return NextResponse.json({ error: 'Email und Passwort sind erforderlich' }, { status: 400 });
     }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json({ error: passwordError }, { status: 400 });
+    }
+
+    const normalizedName = normalizeOptionalName(name);
 
     let existingUser: any = null;
     try {
@@ -33,11 +41,11 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
     let user: any;
     try {
-      user = await createUserViaSupabase({ email: normalizedEmail, password: hashedPassword, name: name ?? null });
+      user = await createUserViaSupabase({ email: normalizedEmail, password: hashedPassword, name: normalizedName });
     } catch (supabaseError: any) {
       try {
         user = await prisma.user.create({
-          data: { email: normalizedEmail, password: hashedPassword, name: name ?? null },
+          data: { email: normalizedEmail, password: hashedPassword, name: normalizedName },
         });
       } catch (prismaError: any) {
         if (isPrismaConnectionError(prismaError)) throw supabaseError;

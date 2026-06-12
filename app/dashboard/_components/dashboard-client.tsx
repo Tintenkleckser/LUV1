@@ -330,14 +330,14 @@ export function DashboardClient() {
                   value={newClientId}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewClientId(e.target.value)}
                   className="pl-10"
-                  onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && handleCreateClient()}
+                  onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && newClientId.trim() && handleCreateClient()}
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewClient(false)}>Abbrechen</Button>
-            <Button onClick={handleCreateClient} loading={creating}>
+            <Button onClick={handleCreateClient} loading={creating} disabled={creating || !newClientId.trim()}>
               <Plus className="w-4 h-4 mr-1" /> Anlegen
             </Button>
           </DialogFooter>

@@ -713,10 +713,11 @@ export function AssessmentClient() {
                 <Card className="mt-4">
                   <CardContent className="pt-4">
                     <Textarea
-                      placeholder="Anmerkungen zur Einschätzung..."
+                      placeholder="Allgemeine Anmerkungen zur gesamten Einschätzung..."
                       value={notes}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                       rows={3}
+                      aria-label="Allgemeine Anmerkungen zur gesamten Einschätzung"
                       className="resize-none"
                     />
                   </CardContent>

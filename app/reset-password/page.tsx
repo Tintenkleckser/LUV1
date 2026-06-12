@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Mail, Lock, ArrowLeft, CheckCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { MIN_PASSWORD_LENGTH } from '@/lib/release-fixes';
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
@@ -49,8 +50,8 @@ function ResetPasswordContent() {
       toast.error('Die Passwörter stimmen nicht überein');
       return;
     }
-    if (password.length < 6) {
-      toast.error('Das Passwort muss mindestens 6 Zeichen lang sein');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein`);
       return;
     }
     setLoading(true);
@@ -131,10 +132,11 @@ function ResetPasswordContent() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Mindestens 6 Zeichen"
+                  placeholder={`Mindestens ${MIN_PASSWORD_LENGTH} Zeichen`}
                   value={password}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   required
+                  minLength={MIN_PASSWORD_LENGTH}
                   className="pl-10"
                 />
               </div>
@@ -150,6 +152,7 @@ function ResetPasswordContent() {
                   value={confirmPassword}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                   required
+                  minLength={MIN_PASSWORD_LENGTH}
                   className="pl-10"
                 />
               </div>

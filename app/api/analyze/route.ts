@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -7,6 +7,9 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { supabase } from '@/lib/supabase';
 import { findAssessmentViaSupabase, isPrismaConnectionError } from '@/lib/app-db-fallback';
+import { countRatings, hasSufficientAssessmentData, sanitizeGeneratedChunk, sanitizeGeneratedText } from '@/lib/release-fixes';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function insufficientDataMessage(ratedCount: number, totalCount: number, answeredQuestions: number) {
   const percent = totalCount > 0 ? Math.round((ratedCount / totalCount) * 100) : 0;
@@ -50,18 +53,32 @@ export async function POST(request: NextRequest) {
     // Fetch assessment with question answers from database
     let questionsContext = '';
     let answeredQuestionCount = 0;
+    let assessmentRatings: Record<string, any> | null = null;
+    let assessmentLoaded = false;
     if (assessment_id) {
       try {
         let assessment: any = null;
-        try {
-          assessment = await prisma.assessment.findUnique({
-            where: { id: assessment_id },
-          });
-        } catch (error: any) {
-          if (!isPrismaConnectionError(error)) throw error;
-          assessment = await findAssessmentViaSupabase(assessment_id);
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            assessment = await prisma.assessment.findUnique({
+              where: { id: assessment_id },
+            });
+          } catch (error: any) {
+            if (!isPrismaConnectionError(error)) throw error;
+            assessment = await findAssessmentViaSupabase(assessment_id);
+          }
+
+          if (assessment && countRatings(assessment?.ratings) > 0) {
+            break;
+          }
+
+          if (attempt < 2) {
+            await sleep(400);
+          }
         }
         if (assessment) {
+          assessmentLoaded = true;
+          assessmentRatings = assessment?.ratings as Record<string, any> ?? null;
           const qAnswers: string[] = [];
           // Fetch question texts from Supabase
           const { data: questionData } = await supabase
@@ -90,9 +107,10 @@ export async function POST(request: NextRequest) {
     const { count: totalCompetencies } = await supabase
       .from('competencies')
       .select('*', { count: 'exact', head: true });
-    const ratedCount = Object.keys(ratings ?? {}).length;
+    const effectiveRatings = countRatings(assessmentRatings) > 0 ? assessmentRatings : (ratings ?? {});
+    const ratedCount = countRatings(effectiveRatings);
     const totalCount = totalCompetencies ?? (competencies?.length ?? 0);
-    if (totalCount === 0 || ratedCount / totalCount < 0.8 || answeredQuestionCount < 4) {
+    if (assessmentLoaded && !hasSufficientAssessmentData({ ratedCount, totalCount, answeredQuestionCount })) {
       return completedTextResponse(insufficientDataMessage(ratedCount, totalCount, answeredQuestionCount));
     }
 
@@ -147,7 +165,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build ratings summary
-    const ratingSummary = Object.entries(ratings ?? {})?.map(([key, val]: [string, any]) => {
+    const ratingSummary = Object.entries(effectiveRatings ?? {})?.map(([key, val]: [string, any]) => {
       return `${key}: ${val === 'X' ? 'nicht bewertet' : val}`;
     })?.join('\n') ?? '';
 
@@ -328,6 +346,7 @@ ${systemContext}`;
         const finalize = async () => {
           if (finalized) return;
           finalized = true;
+          buffer = sanitizeGeneratedText(buffer);
           if (assessment_id && buffer) {
             try {
               await prisma.assessment.update({
@@ -360,8 +379,9 @@ ${systemContext}`;
                   const parsed = JSON.parse(data);
                   const content = parsed?.choices?.[0]?.delta?.content ?? '';
                   if (content) {
-                    buffer += content;
-                    const chunkData = JSON.stringify({ status: 'streaming', content });
+                    const sanitizedContent = sanitizeGeneratedChunk(content);
+                    buffer += sanitizedContent;
+                    const chunkData = JSON.stringify({ status: 'streaming', content: sanitizedContent });
                     controller.enqueue(encoder.encode(`data: ${chunkData}\n\n`));
                   }
                 } catch (e) {
